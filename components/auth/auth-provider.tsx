@@ -28,19 +28,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         setUser(session?.user ?? null)
-
-        // Handle auth callback
-        const params = new URLSearchParams(window.location.hash.substring(1))
-        const accessToken = params.get('access_token')
-        const refreshToken = params.get('refresh_token')
-
-        if (accessToken && refreshToken) {
-          await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-          })
-          router.push('/')
-        }
       } catch (error) {
         console.error("Auth initialization error:", error)
       }
@@ -48,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
       
       if (event === 'SIGNED_IN') {
@@ -65,67 +52,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [router])
 
-  const handleAuthError = (error: unknown) => {
-    console.error("Auth error:", error)
-    const message = getAuthErrorMessage(error)
-    
-    // If auth is not configured, show a more helpful message
-    if (message.includes('Auth not configured')) {
-      toast({
-        title: "Auth Not Configured",
-        description: "Please set up Supabase environment variables to enable authentication.",
-        variant: "destructive",
-        duration: 5000
-      })
-      return
-    }
-    
-    toast({
-      title: "Authentication Error",
-      description: message,
-      variant: "destructive",
-      duration: 5000
-    })
-    
-    throw error
-  }
-
   const signUp = async (email: string, password: string, name: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { name },
-          emailRedirectTo: `${window.location.origin}`
+          data: { 
+            name,
+            username: email.split('@')[0] 
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`
         }
       })
 
       if (error) throw error
 
       if (data.user) {
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .insert([{
-            id: data.user.id,
-            name,
-            email,
-            avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.user.id}`,
-            created_at: new Date().toISOString()
-          }])
-
-        if (profileError) throw profileError
-
         toast({
-          title: "Success!",
+          title: "Verification email sent",
           description: "Please check your email to verify your account.",
           duration: 5000
         })
-
-        router.push('/login')
+        router.push('/login?message=Please check your email to verify your account')
       }
     } catch (error) {
-      handleAuthError(error)
+      console.error("Signup error:", error)
+      // Even if we get an error, if the user was created, show success message
+      if (error instanceof Error && error.message.includes('Email rate limit exceeded')) {
+        toast({
+          title: "Verification email sent",
+          description: "Please check your email to verify your account.",
+          duration: 5000
+        })
+        router.push('/login?message=Please check your email to verify your account')
+        return
+      }
+
+      toast({
+        title: "Error",
+        description: getAuthErrorMessage(error),
+        variant: "destructive",
+        duration: 5000
+      })
+      throw error
     }
   }
 
@@ -139,7 +109,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error
       router.push("/")
     } catch (error) {
-      handleAuthError(error)
+      toast({
+        title: "Error",
+        description: getAuthErrorMessage(error),
+        variant: "destructive"
+      })
+      throw error
     }
   }
 
@@ -148,13 +123,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}`
+          redirectTo: `${window.location.origin}/auth/callback`
         }
       })
       
       if (error) throw error
     } catch (error) {
-      handleAuthError(error)
+      toast({
+        title: "Error",
+        description: getAuthErrorMessage(error),
+        variant: "destructive"
+      })
+      throw error
     }
   }
 
@@ -163,13 +143,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "github",
         options: {
-          redirectTo: `${window.location.origin}`
+          redirectTo: `${window.location.origin}/auth/callback`
         }
       })
       
       if (error) throw error
     } catch (error) {
-      handleAuthError(error)
+      toast({
+        title: "Error",
+        description: getAuthErrorMessage(error),
+        variant: "destructive"
+      })
+      throw error
     }
   }
 
@@ -179,7 +164,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error
       router.push("/login")
     } catch (error) {
-      handleAuthError(error)
+      toast({
+        title: "Error",
+        description: getAuthErrorMessage(error),
+        variant: "destructive"
+      })
+      throw error
     }
   }
 
