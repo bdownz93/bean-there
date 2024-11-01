@@ -1,4 +1,4 @@
--- Create tables
+-- Create tables first, without triggers
 CREATE TABLE IF NOT EXISTS public.users (
     id uuid REFERENCES auth.users ON DELETE CASCADE,
     username TEXT UNIQUE,
@@ -88,7 +88,7 @@ CREATE POLICY "Users can update their own reviews" ON public.reviews
 CREATE POLICY "Users can delete their own reviews" ON public.reviews
     FOR DELETE USING (auth.uid() = user_id);
 
--- Create functions and triggers
+-- Create handle_new_user function and trigger
 CREATE OR REPLACE FUNCTION public.handle_new_user() 
 RETURNS trigger AS $$
 BEGIN
@@ -103,35 +103,6 @@ BEGIN
 END;
 $$ language plpgsql security definer;
 
-CREATE OR REPLACE TRIGGER on_auth_user_created
+CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
--- Update timestamps
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;   
-END;
-$$ language plpgsql;
-
-CREATE TRIGGER update_users_updated_at
-    BEFORE UPDATE ON users
-    FOR EACH ROW
-    EXECUTE PROCEDURE update_updated_at_column();
-
-CREATE TRIGGER update_roasters_updated_at
-    BEFORE UPDATE ON roasters
-    FOR EACH ROW
-    EXECUTE PROCEDURE update_updated_at_column();
-
-CREATE TRIGGER update_beans_updated_at
-    BEFORE UPDATE ON beans
-    FOR EACH ROW
-    EXECUTE PROCEDURE update_updated_at_column();
-
-CREATE TRIGGER update_reviews_updated_at
-    BEFORE UPDATE ON reviews
-    FOR EACH ROW
-    EXECUTE PROCEDURE update_updated_at_column();
