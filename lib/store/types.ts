@@ -9,15 +9,10 @@ export interface StoreState {
   users: Record<string, User>
   addRoaster: (roaster: Omit<Roaster, "id">) => void
   addBean: (roasterId: string, bean: Omit<Bean, "id">) => void
-  addReview: (review: Omit<Review, "id" | "date">) => void
-  updateReview: (reviewId: string | number, content: string, rating: number) => void
-  deleteReview: (reviewId: string | number) => void
-  getReviews: () => Review[]
-  getBeanReviews: (beanId: string) => Review[]
+  addReview: (review: Omit<Review, "id" | "createdAt">) => Promise<void>
+  updateReview: (reviewId: string, content: string, rating: number) => void
+  deleteReview: (reviewId: string) => void
   toggleVisited: (roasterId: string) => void
-  updateUserProfile: (data: {
-    name: string
-    bio: string
-    favoriteCoffeeStyles: string[]
-  }) => void
+  followUser: (userId: string) => void
+  unfollowUser: (userId: string) => void
 }

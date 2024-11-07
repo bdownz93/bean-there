@@ -40,7 +40,6 @@ export function BeanHeader({ onSearch }: BeanHeaderProps) {
           placeholder="Search beans..."
           onChange={handleSearch}
           className="h-9"
-          autoComplete="off"
         />
         <Button size="icon" className="h-9 w-9">
           <Search className="h-4 w-4" />
