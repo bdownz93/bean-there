@@ -2,6 +2,7 @@ export interface Bean {
   id: string
   name: string
   roaster?: string
+  roasterId?: string
   origin: string
   roastLevel: string
   process: string
@@ -32,6 +33,9 @@ export interface Review {
   roaster?: string
   brewMethod?: string
   flavorNotes?: string[]
+  userId: string
+  userName: string
+  userImage: string
 }
 
 export interface Roaster {

@@ -2,7 +2,7 @@ import { Roaster } from "./types"
 
 export const roasters: Roaster[] = [
   {
-    id: "1",
+    id: "00000000-0000-4000-a000-000000000001",
     slug: "stumptown-coffee",
     name: "Stumptown Coffee Roasters",
     location: "Portland, OR",
@@ -16,7 +16,7 @@ export const roasters: Roaster[] = [
     },
     beans: [
       {
-        id: "1",
+        id: "00000000-0000-4000-a000-000000000002",
         name: "Hair Bender Espresso",
         origin: "Multi-Region Blend",
         price: 16.00,
@@ -34,22 +34,12 @@ export const roasters: Roaster[] = [
           { name: "Acidity", intensity: 70 },
           { name: "Body", intensity: 80 },
         ],
-        reviews: [
-          {
-            id: "1",
-            userId: "user1",
-            userName: "Coffee Lover",
-            userImage: "https://api.dicebear.com/7.x/avataaars/svg?seed=1",
-            rating: 5,
-            content: "The perfect morning espresso. Rich and complex with a beautiful crema.",
-            date: "2024-03-20T08:00:00.000Z"
-          }
-        ]
+        reviews: []
       }
     ]
   },
   {
-    id: "2",
+    id: "00000000-0000-4000-a000-000000000003",
     slug: "blue-bottle",
     name: "Blue Bottle Coffee",
     location: "Oakland, CA",
@@ -63,7 +53,7 @@ export const roasters: Roaster[] = [
     },
     beans: [
       {
-        id: "2",
+        id: "00000000-0000-4000-a000-000000000004",
         name: "Three Africas",
         origin: "Africa Blend",
         price: 19.00,

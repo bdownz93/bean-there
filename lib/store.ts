@@ -14,7 +14,7 @@ interface StoreState {
   triedBeans: string[]
   addRoaster: (roaster: Omit<Roaster, "id">) => void
   addBean: (roasterId: string, bean: Omit<Bean, "id">) => void
-  addReview: (review: Omit<Review, "id" | "date">) => void
+  addReview: (review: Omit<Review, "id" | "date">) => Promise<void>
   updateReview: (reviewId: string | number, content: string, rating: number) => void
   deleteReview: (reviewId: string | number) => void
   toggleVisited: (roasterId: string) => void
@@ -48,48 +48,16 @@ const mockCurrentUser: User = {
 }
 
 const mockUsers: Record<string, User> = {
-  "current-user": mockCurrentUser,
-  "user1": {
-    id: "user1",
-    username: "beanqueen",
-    name: "Bean Queen",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=beanqueen",
-    bio: "Coffee roaster and taster",
-    joinedDate: new Date().toISOString(),
-    followers: [],
-    following: [],
-    reviews: [],
-    badges: [],
-    triedBeans: [],
-    level: 2,
-    reviewCount: 5,
-    favoriteCoffeeStyles: ["Dark Roast", "Espresso"]
-  },
-  "user2": {
-    id: "user2",
-    username: "brewmaster",
-    name: "Brew Master",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=brewmaster",
-    bio: "Professional barista",
-    joinedDate: new Date().toISOString(),
-    followers: [],
-    following: [],
-    reviews: [],
-    badges: [],
-    triedBeans: [],
-    level: 3,
-    reviewCount: 10,
-    favoriteCoffeeStyles: ["Medium Roast", "Cold Brew"]
-  }
+  "current-user": mockCurrentUser
 }
 
 export const useStore = create<StoreState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       roasters: initialRoasters,
       users: mockUsers,
       currentUser: mockCurrentUser,
-      reviews: [],
+      reviews: [], // Initialize as empty array
       visitedRoasters: [],
       triedBeans: [],
 
@@ -117,44 +85,42 @@ export const useStore = create<StoreState>()(
           )
         })),
 
-      addReview: (newReview) => 
-        set((state) => {
-          const reviewId = Math.random().toString(36).substr(2, 9)
-          const review = {
-            ...newReview,
-            id: reviewId,
-            date: new Date().toISOString()
-          }
-          
-          const updatedUser = {
+      addReview: async (newReview) => {
+        const reviewId = Math.random().toString(36).substr(2, 9)
+        const review = {
+          ...newReview,
+          id: reviewId,
+          date: new Date().toISOString()
+        }
+        
+        set((state) => ({
+          reviews: Array.isArray(state.reviews) ? [...state.reviews, review] : [review],
+          currentUser: {
             ...state.currentUser,
             reviews: [...state.currentUser.reviews, reviewId],
-            triedBeans: [...state.currentUser.triedBeans, review.beanId as string],
-            reviewCount: state.currentUser.reviewCount + 1
-          }
-
-          return {
-            reviews: [...state.reviews, review],
-            currentUser: updatedUser,
-            users: {
-              ...state.users,
-              [updatedUser.id]: updatedUser
-            }
-          }
-        }),
+            reviewCount: state.currentUser.reviewCount + 1,
+            triedBeans: [...state.currentUser.triedBeans, review.beanId]
+          },
+          triedBeans: [...state.triedBeans, review.beanId]
+        }))
+      },
 
       updateReview: (reviewId, content, rating) =>
         set((state) => ({
-          reviews: state.reviews.map(review =>
-            review.id === reviewId
-              ? { ...review, content, rating }
-              : review
-          )
+          reviews: Array.isArray(state.reviews) 
+            ? state.reviews.map(review =>
+                review.id === reviewId
+                  ? { ...review, content, rating }
+                  : review
+              )
+            : []
         })),
 
       deleteReview: (reviewId) =>
         set((state) => ({
-          reviews: state.reviews.filter(review => review.id !== reviewId),
+          reviews: Array.isArray(state.reviews) 
+            ? state.reviews.filter(review => review.id !== reviewId)
+            : [],
           currentUser: {
             ...state.currentUser,
             reviews: state.currentUser.reviews.filter(id => id !== reviewId),
@@ -203,10 +169,10 @@ export const useStore = create<StoreState>()(
       name: 'coffee-store',
       partialize: (state) => ({
         reviews: state.reviews || [],
-        users: state.users,
-        currentUser: state.currentUser,
         visitedRoasters: state.visitedRoasters,
-        triedBeans: state.triedBeans
+        triedBeans: state.triedBeans,
+        currentUser: state.currentUser,
+        users: state.users
       })
     }
   )

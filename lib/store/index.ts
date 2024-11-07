@@ -3,29 +3,30 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { roasters as initialRoasters } from '../data'
-import { mockCurrentUser, mockUsers } from './initial-state'
+import { mockCurrentUser } from './initial-state'
 import type { StoreState } from './types'
 
 const initialState = {
   roasters: initialRoasters,
-  reviews: [],
+  reviews: [], // Initialize as empty array
   visitedRoasters: [],
   triedBeans: [],
   currentUser: mockCurrentUser,
-  users: mockUsers
+  users: {
+    "current-user": mockCurrentUser
+  }
 }
 
 export const useStore = create<StoreState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       ...initialState,
 
       addRoaster: (newRoaster) => 
         set((state) => ({
           roasters: [...state.roasters, {
             ...newRoaster,
-            id: Math.random().toString(36).substr(2, 9),
-            beans: []
+            id: Math.random().toString(36).substr(2, 9)
           }]
         })),
 
@@ -44,48 +45,48 @@ export const useStore = create<StoreState>()(
           )
         })),
 
-      addReview: (newReview) => 
-        set((state) => {
-          const reviewId = Math.random().toString(36).substr(2, 9)
-          const review = {
-            ...newReview,
-            id: reviewId,
-            date: new Date().toISOString()
-          }
-          
-          return {
-            reviews: [...(state.reviews || []), review],
-            currentUser: {
-              ...state.currentUser,
-              reviews: [...state.currentUser.reviews, reviewId],
-              reviewCount: state.currentUser.reviewCount + 1
-            }
-          }
-        }),
+      addReview: async (newReview) => {
+        const reviewId = Math.random().toString(36).substr(2, 9)
+        const review = {
+          ...newReview,
+          id: reviewId,
+          createdAt: new Date().toISOString()
+        }
+        
+        set((state) => ({
+          reviews: Array.isArray(state.reviews) ? [...state.reviews, review] : [review],
+          currentUser: {
+            ...state.currentUser,
+            reviews: [...state.currentUser.reviews, reviewId],
+            reviewCount: state.currentUser.reviewCount + 1,
+            triedBeans: [...state.currentUser.triedBeans, review.beanId]
+          },
+          triedBeans: [...state.triedBeans, review.beanId]
+        }))
+      },
 
       updateReview: (reviewId, content, rating) =>
         set((state) => ({
-          reviews: (state.reviews || []).map(review =>
-            review.id === reviewId
-              ? { ...review, content, rating }
-              : review
-          )
+          reviews: Array.isArray(state.reviews) 
+            ? state.reviews.map(review =>
+                review.id === reviewId
+                  ? { ...review, content, rating }
+                  : review
+              )
+            : []
         })),
 
       deleteReview: (reviewId) =>
         set((state) => ({
-          reviews: (state.reviews || []).filter(review => review.id !== reviewId),
+          reviews: Array.isArray(state.reviews) 
+            ? state.reviews.filter(review => review.id !== reviewId)
+            : [],
           currentUser: {
             ...state.currentUser,
             reviews: state.currentUser.reviews.filter(id => id !== reviewId),
             reviewCount: Math.max(0, state.currentUser.reviewCount - 1)
           }
         })),
-
-      getReviews: () => get().reviews || [],
-      
-      getBeanReviews: (beanId) => 
-        (get().reviews || []).filter(review => review.beanId === beanId),
 
       toggleVisited: (roasterId) =>
         set((state) => ({
@@ -94,21 +95,32 @@ export const useStore = create<StoreState>()(
             : [...state.visitedRoasters, roasterId]
         })),
 
-      updateUserProfile: (data) =>
+      followUser: (userId) =>
         set((state) => ({
           currentUser: {
             ...state.currentUser,
-            name: data.name,
-            bio: data.bio,
-            favoriteCoffeeStyles: data.favoriteCoffeeStyles
+            following: [...state.currentUser.following, userId]
           },
           users: {
             ...state.users,
-            [state.currentUser.id]: {
-              ...state.users[state.currentUser.id],
-              name: data.name,
-              bio: data.bio,
-              favoriteCoffeeStyles: data.favoriteCoffeeStyles
+            [userId]: {
+              ...state.users[userId],
+              followers: [...state.users[userId].followers, state.currentUser.id]
+            }
+          }
+        })),
+
+      unfollowUser: (userId) =>
+        set((state) => ({
+          currentUser: {
+            ...state.currentUser,
+            following: state.currentUser.following.filter(id => id !== userId)
+          },
+          users: {
+            ...state.users,
+            [userId]: {
+              ...state.users[userId],
+              followers: state.users[userId].followers.filter(id => id !== state.currentUser.id)
             }
           }
         }))
@@ -116,7 +128,7 @@ export const useStore = create<StoreState>()(
     {
       name: 'coffee-store',
       partialize: (state) => ({
-        reviews: state.reviews || [],
+        reviews: state.reviews,
         visitedRoasters: state.visitedRoasters,
         triedBeans: state.triedBeans,
         currentUser: state.currentUser,

@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { BeanList } from "@/components/bean/bean-list"
 import { BeanHeader } from "@/components/bean/bean-header"
-import { AddBeanForm } from "@/components/forms/add-bean-form"
-import { useStore } from "@/lib/store"
+import { searchBeans } from "@/lib/beans"
 import type { Bean } from "@/lib/types"
 
 interface BeansClientProps {
@@ -12,36 +11,22 @@ interface BeansClientProps {
 }
 
 export function BeansClient({ initialBeans }: BeansClientProps) {
-  const [searchTerm, setSearchTerm] = useState("")
-  const { roasters } = useStore()
-  const { triedBeans = [] } = useStore((state) => ({
-    triedBeans: state.currentUser?.triedBeans || []
-  }))
+  const [beans, setBeans] = useState(initialBeans)
 
-  const allBeans = (roasters || []).flatMap(roaster => 
-    roaster.beans.map(bean => ({
-      ...bean,
-      roaster: roaster.name,
-      tried: triedBeans.includes(bean.id)
-    }))
-  )
-
-  const filteredBeans = searchTerm
-    ? allBeans.filter(bean => 
-        bean.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        bean.roaster.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        bean.origin.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : allBeans
+  const handleSearch = (query: string) => {
+    if (!query.trim()) {
+      setBeans(initialBeans)
+      return
+    }
+    const results = searchBeans(query)
+    setBeans(results)
+  }
 
   return (
     <div className="container px-4 py-8 mx-auto">
-      <div className="flex justify-between items-center">
-        <BeanHeader onSearch={setSearchTerm} />
-        <AddBeanForm />
-      </div>
+      <BeanHeader onSearch={handleSearch} />
       <div className="mt-8">
-        <BeanList beans={filteredBeans} />
+        <BeanList beans={beans} />
       </div>
     </div>
   )

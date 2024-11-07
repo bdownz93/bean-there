@@ -1,63 +1,27 @@
 import { createClient } from '@supabase/supabase-js'
-import { Database } from '@/types/supabase'
+import { roasters } from '../lib/data'
+import * as dotenv from 'dotenv'
+
+// Load environment variables from .env.local
+dotenv.config({ path: '.env.local' })
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseUrl || !supabaseServiceKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+// Use service key for admin operations
+const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-// Reviews
-export async function addReview(review: {
-  bean_id: string
-  user_id: string
-  rating: number
-  content: string
-  brew_method?: string
-  flavor_notes?: string[]
-}) {
-  const { data, error } = await supabase
-    .from('reviews')
-    .insert([{
-      ...review,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }])
-    .select()
-    .single()
-
-  if (error) throw error
-  return data
-}
-
-export async function getReviews(beanId: string) {
-  const { data, error } = await supabase
-    .from('reviews')
-    .select(`
-      *,
-      users (
-        id,
-        name,
-        username,
-        avatar_url
-      )
-    `)
-    .eq('bean_id', beanId)
-    .order('created_at', { ascending: false })
-
-  if (error) throw error
-  return data
-}
-
-// Beans
-export async function syncBeansToSupabase() {
-  const { roasters } = await import('./data')
+async function syncBeansToSupabase() {
+  console.log('Starting sync...')
   
   // First sync roasters
   for (const roaster of roasters) {
+    console.log(`Syncing roaster: ${roaster.name}`)
+    
     const { error: roasterError } = await supabase
       .from('roasters')
       .upsert({
@@ -69,13 +33,20 @@ export async function syncBeansToSupabase() {
         logo_url: roaster.logo,
         rating: roaster.rating,
         coordinates: roaster.coordinates,
-        specialties: roaster.specialties
+        specialties: roaster.specialties,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
 
-    if (roasterError) throw roasterError
+    if (roasterError) {
+      console.error(`Error syncing roaster ${roaster.name}:`, roasterError)
+      throw roasterError
+    }
 
     // Then sync beans for each roaster
     for (const bean of roaster.beans) {
+      console.log(`Syncing bean: ${bean.name}`)
+      
       const { error: beanError } = await supabase
         .from('beans')
         .upsert({
@@ -94,10 +65,28 @@ export async function syncBeansToSupabase() {
           flavor_profile: bean.flavorProfile,
           altitude: bean.altitude,
           variety: bean.variety,
-          harvest: bean.harvest
+          harvest: bean.harvest,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
 
-      if (beanError) throw beanError
+      if (beanError) {
+        console.error(`Error syncing bean ${bean.name}:`, beanError)
+        throw beanError
+      }
     }
   }
+  
+  console.log('Sync completed successfully!')
 }
+
+async function main() {
+  try {
+    await syncBeansToSupabase()
+  } catch (error) {
+    console.error('Error syncing database:', error)
+    process.exit(1)
+  }
+}
+
+main()
