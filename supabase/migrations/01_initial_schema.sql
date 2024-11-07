@@ -53,6 +53,17 @@ CREATE TABLE IF NOT EXISTS public.reviews (
     content TEXT,
     brew_method TEXT,
     flavor_notes TEXT[],
+    photos TEXT[],
+    grind_size TEXT,
+    water_temp INTEGER,
+    brew_time TEXT,
+    dose_grams DECIMAL(5,1),
+    yield_grams DECIMAL(5,1),
+    aroma_rating INTEGER CHECK (aroma_rating >= 1 AND aroma_rating <= 5),
+    body_rating INTEGER CHECK (body_rating >= 1 AND body_rating <= 5),
+    acidity_rating INTEGER CHECK (acidity_rating >= 1 AND acidity_rating <= 5),
+    sweetness_rating INTEGER CHECK (sweetness_rating >= 1 AND sweetness_rating <= 5),
+    aftertaste_rating INTEGER CHECK (aftertaste_rating >= 1 AND aftertaste_rating <= 5),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
