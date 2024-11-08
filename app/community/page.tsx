@@ -9,15 +9,29 @@ import { useQuery } from "@tanstack/react-query"
 import { getBeans, getReviews } from "@/lib/supabase"
 
 export default function CommunityPage() {
-  const { data: reviews = [] } = useQuery({
+  const { data: reviews = [], isError: isReviewsError } = useQuery({
     queryKey: ['reviews'],
-    queryFn: () => getReviews()
+    queryFn: () => getReviews(),
+    retry: 1
   })
 
-  const { data: beans = [] } = useQuery({
+  const { data: beans = [], isError: isBeansError } = useQuery({
     queryKey: ['beans'],
-    queryFn: () => getBeans()
+    queryFn: () => getBeans(),
+    retry: 1
   })
+
+  if (isReviewsError || isBeansError) {
+    return (
+      <div className="container mx-auto py-8">
+        <Card className="p-6">
+          <p className="text-center text-muted-foreground">
+            Unable to load community content. Please try again later.
+          </p>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto py-8">
