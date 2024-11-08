@@ -1,55 +1,53 @@
-export interface Bean {
+export interface User {
   id: string
+  username: string
   name: string
-  roaster?: string
-  roasterId?: string
-  origin: string
-  roastLevel: string
-  process: string
-  description: string
-  price: number
-  weight?: number
-  rating: number
-  tastingNotes: string[]
-  altitude: string
-  variety: string
-  harvest: string
-  image?: string
-  flavorProfile?: Array<{
-    name: string
-    intensity: number
-  }>
-  reviews?: Array<Review>
-  slug?: string
+  avatar_url: string
+  bio: string | null
+  location: string | null
+  experience_points: number
+  level: number
+  favorite_coffee_styles: string[]
+  wishlist_beans: string[]
+  favorite_beans: string[]
+  created_at: string
+  updated_at: string
 }
 
-export interface Review {
-  id: number | string
-  rating: number
-  content: string
-  date: string
-  bean?: string
-  beanId?: string
-  roaster?: string
-  brewMethod?: string
-  flavorNotes?: string[]
-  userId: string
-  userName: string
-  userImage: string
+export interface Badge {
+  id: string
+  name: string
+  description: string
+  icon: string
+  category: string
+  requirements: Record<string, any>
+  created_at: string
 }
 
-export interface Roaster {
+export interface UserBadge {
   id: string
-  slug: string
-  name: string
-  location: string
-  description: string
-  rating: number
-  logo?: string
-  specialties: string[]
-  coordinates: {
-    lat: number
-    lng: number
-  }
-  beans: Bean[]
+  user_id: string
+  badge_id: string
+  badge: Badge
+  earned_at: string
+}
+
+export interface JournalEntry {
+  id: string
+  user_id: string
+  bean_id: string
+  notes: string
+  private: boolean
+  created_at: string
+  updated_at: string
+  bean: Bean
+}
+
+export interface UserStats {
+  reviews_count: number
+  roasters_added: number
+  beans_added: number
+  unique_origins: number
+  followers_count: number
+  following_count: number
 }

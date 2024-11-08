@@ -1,6 +1,6 @@
 import { RoasterProfile } from "@/components/roaster/roaster-profile"
 import { BeanGrid } from "@/components/bean/bean-grid"
-import { roasters } from "@/lib/data"
+import { getRoasterBySlug, getAllRoasters } from "@/lib/supabase"
 import { notFound } from "next/navigation"
 
 interface RoasterPageProps {
@@ -9,14 +9,15 @@ interface RoasterPageProps {
   }
 }
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const roasters = await getAllRoasters()
   return roasters.map((roaster) => ({
-    slug: roaster.slug,
+    slug: roaster.slug || ""
   }))
 }
 
-export default function RoasterPage({ params }: RoasterPageProps) {
-  const roaster = roasters.find((r) => r.slug === params.slug)
+export default async function RoasterPage({ params }: RoasterPageProps) {
+  const roaster = await getRoasterBySlug(params.slug)
 
   if (!roaster) {
     notFound()

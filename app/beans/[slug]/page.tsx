@@ -1,8 +1,7 @@
 import { BeanProfile } from "@/components/bean/bean-profile"
 import { BeanReviews } from "@/components/bean/bean-reviews"
-import { roasters } from "@/lib/data"
-import { notFound } from "next/navigation"
 import { getBeanById } from "@/lib/beans"
+import { notFound } from "next/navigation"
 
 interface BeanPageProps {
   params: {
@@ -10,16 +9,8 @@ interface BeanPageProps {
   }
 }
 
-export function generateStaticParams() {
-  return roasters.flatMap(roaster => 
-    roaster.beans.map(bean => ({
-      slug: bean.id
-    }))
-  )
-}
-
-export default function BeanPage({ params }: BeanPageProps) {
-  const bean = getBeanById(params.slug)
+export default async function BeanPage({ params }: BeanPageProps) {
+  const bean = await getBeanById(params.slug)
 
   if (!bean) {
     notFound()

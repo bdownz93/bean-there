@@ -1,30 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { formatDistanceToNow } from "date-fns"
-import { useStore } from "@/lib/store"
 import Link from "next/link"
-import type { Review } from "@/lib/types"
+import { User } from "lucide-react"
 
-export function ActivityFeed() {
-  const [activities, setActivities] = useState<Review[]>([])
-  const reviews = useStore((state) => state.reviews)
+interface ActivityFeedProps {
+  reviews: any[]
+}
 
-  useEffect(() => {
-    if (!Array.isArray(reviews)) {
-      setActivities([])
-      return
-    }
-
-    const sortedReviews = [...reviews].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    )
-    setActivities(sortedReviews)
-  }, [reviews])
-
-  if (!activities || activities.length === 0) {
+export function ActivityFeed({ reviews }: ActivityFeedProps) {
+  if (!reviews || reviews.length === 0) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -38,25 +25,30 @@ export function ActivityFeed() {
     <Card>
       <CardContent className="pt-6">
         <div className="space-y-8">
-          {activities.map((activity) => (
-            <div key={activity.id} className="flex gap-4">
+          {reviews.map((review) => (
+            <div key={review.id} className="flex gap-4">
               <Avatar>
-                <AvatarImage src={activity.userImage} alt={activity.userName} />
-                <AvatarFallback>{activity.userName[0]}</AvatarFallback>
+                <AvatarImage src={review.users?.avatar_url} alt={review.users?.name} />
+                <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
               </Avatar>
               <div className="flex-1 space-y-1">
                 <p className="text-sm">
-                  <Link href={`/profile/${activity.userId}`} className="font-medium hover:underline">
-                    {activity.userName}
+                  <Link href={`/profile/${review.users?.username}`} className="font-medium hover:underline">
+                    {review.users?.name}
                   </Link>{' '}
                   reviewed{' '}
-                  <Link href={`/beans/${activity.beanId}`} className="font-medium hover:underline">
-                    {activity.bean}
+                  <Link href={`/beans/${review.beans?.id}`} className="font-medium hover:underline">
+                    {review.beans?.name}
                   </Link>
+                  {review.beans?.roasters && (
+                    <span className="text-muted-foreground">
+                      {' '}by {review.beans.roasters.name}
+                    </span>
+                  )}
                 </p>
-                <p className="text-sm text-muted-foreground">{activity.content}</p>
+                <p className="text-sm text-muted-foreground">{review.content}</p>
                 <p className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(activity.date), { addSuffix: true })}
+                  {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
                 </p>
               </div>
             </div>

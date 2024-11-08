@@ -9,7 +9,8 @@ import { getAuthErrorMessage } from "@/lib/auth-utils"
 
 interface AuthContextType {
   user: User | null
-  signUp: (email: string, password: string, name: string) => Promise<void>
+  isLoading: boolean
+  signUp: (email: string, password: string, name: string, username: string) => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
   signInWithGithub: () => Promise<void>
@@ -20,6 +21,7 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -30,6 +32,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null)
       } catch (error) {
         console.error("Auth initialization error:", error)
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -52,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [router])
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (email: string, password: string, name: string, username: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -60,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         options: {
           data: { 
             name,
-            username: email.split('@')[0] 
+            username
           },
           emailRedirectTo: `${window.location.origin}/auth/callback`
         }
@@ -78,22 +82,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error("Signup error:", error)
-      // Even if we get an error, if the user was created, show success message
-      if (error instanceof Error && error.message.includes('Email rate limit exceeded')) {
-        toast({
-          title: "Verification email sent",
-          description: "Please check your email to verify your account.",
-          duration: 5000
-        })
-        router.push('/login?message=Please check your email to verify your account')
-        return
-      }
-
       toast({
         title: "Error",
         description: getAuthErrorMessage(error),
-        variant: "destructive",
-        duration: 5000
+        variant: "destructive"
       })
       throw error
     }
@@ -176,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user,
+      isLoading,
       signUp,
       signIn,
       signInWithGoogle,

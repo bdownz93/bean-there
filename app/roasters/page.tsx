@@ -1,6 +1,7 @@
 import { RoastersClient } from "@/components/roaster/roasters-client"
-import { roasters } from "@/lib/data"
+import { getAllRoasters } from "@/lib/supabase"
 
-export default function RoastersPage() {
+export default async function RoastersPage() {
+  const roasters = await getAllRoasters()
   return <RoastersClient initialRoasters={roasters} />
 }

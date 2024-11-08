@@ -4,6 +4,7 @@ import { useState } from "react"
 import { BeanList } from "@/components/bean/bean-list"
 import { BeanHeader } from "@/components/bean/bean-header"
 import { searchBeans } from "@/lib/beans"
+import { useQuery } from "@tanstack/react-query"
 import type { Bean } from "@/lib/types"
 
 interface BeansClientProps {
@@ -11,20 +12,17 @@ interface BeansClientProps {
 }
 
 export function BeansClient({ initialBeans }: BeansClientProps) {
-  const [beans, setBeans] = useState(initialBeans)
+  const [searchQuery, setSearchQuery] = useState("")
 
-  const handleSearch = (query: string) => {
-    if (!query.trim()) {
-      setBeans(initialBeans)
-      return
-    }
-    const results = searchBeans(query)
-    setBeans(results)
-  }
+  const { data: beans = initialBeans } = useQuery({
+    queryKey: ["beans", searchQuery],
+    queryFn: () => searchQuery ? searchBeans(searchQuery) : Promise.resolve(initialBeans),
+    initialData: initialBeans
+  })
 
   return (
     <div className="container px-4 py-8 mx-auto">
-      <BeanHeader onSearch={handleSearch} />
+      <BeanHeader onSearch={setSearchQuery} />
       <div className="mt-8">
         <BeanList beans={beans} />
       </div>

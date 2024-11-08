@@ -2,13 +2,11 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { roasters as initialRoasters } from '../data'
 import { mockCurrentUser } from './initial-state'
 import type { StoreState } from './types'
 
 const initialState = {
-  roasters: initialRoasters,
-  reviews: [], // Initialize as empty array
+  reviews: [],
   visitedRoasters: [],
   triedBeans: [],
   currentUser: mockCurrentUser,
@@ -21,29 +19,6 @@ export const useStore = create<StoreState>()(
   persist(
     (set) => ({
       ...initialState,
-
-      addRoaster: (newRoaster) => 
-        set((state) => ({
-          roasters: [...state.roasters, {
-            ...newRoaster,
-            id: Math.random().toString(36).substr(2, 9)
-          }]
-        })),
-
-      addBean: (roasterId, newBean) =>
-        set((state) => ({
-          roasters: state.roasters.map(roaster =>
-            roaster.id === roasterId
-              ? {
-                  ...roaster,
-                  beans: [...roaster.beans, {
-                    ...newBean,
-                    id: Math.random().toString(36).substr(2, 9)
-                  }]
-                }
-              : roaster
-          )
-        })),
 
       addReview: async (newReview) => {
         const reviewId = Math.random().toString(36).substr(2, 9)

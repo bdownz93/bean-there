@@ -16,6 +16,8 @@ export interface Database {
           name: string | null
           avatar_url: string | null
           bio: string | null
+          favorite_coffee_styles: string[] | null
+          level: number
           created_at: string
           updated_at: string
         }
@@ -25,6 +27,8 @@ export interface Database {
           name?: string | null
           avatar_url?: string | null
           bio?: string | null
+          favorite_coffee_styles?: string[] | null
+          level?: number
           created_at?: string
           updated_at?: string
         }
@@ -34,6 +38,117 @@ export interface Database {
           name?: string | null
           avatar_url?: string | null
           bio?: string | null
+          favorite_coffee_styles?: string[] | null
+          level?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      roasters: {
+        Row: {
+          id: string
+          created_by: string | null
+          slug: string | null
+          name: string
+          location: string | null
+          description: string | null
+          logo_url: string | null
+          rating: number | null
+          coordinates: Json | null
+          specialties: string[] | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          created_by?: string | null
+          slug?: string | null
+          name: string
+          location?: string | null
+          description?: string | null
+          logo_url?: string | null
+          rating?: number | null
+          coordinates?: Json | null
+          specialties?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          created_by?: string | null
+          slug?: string | null
+          name?: string
+          location?: string | null
+          description?: string | null
+          logo_url?: string | null
+          rating?: number | null
+          coordinates?: Json | null
+          specialties?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      beans: {
+        Row: {
+          id: string
+          created_by: string | null
+          roaster_id: string
+          name: string
+          slug: string | null
+          origin: string | null
+          process: string | null
+          roast_level: string | null
+          description: string | null
+          price: number | null
+          rating: number | null
+          image_url: string | null
+          tasting_notes: string[] | null
+          flavor_profile: Json | null
+          altitude: string | null
+          variety: string | null
+          harvest: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          created_by?: string | null
+          roaster_id: string
+          name: string
+          slug?: string | null
+          origin?: string | null
+          process?: string | null
+          roast_level?: string | null
+          description?: string | null
+          price?: number | null
+          rating?: number | null
+          image_url?: string | null
+          tasting_notes?: string[] | null
+          flavor_profile?: Json | null
+          altitude?: string | null
+          variety?: string | null
+          harvest?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          created_by?: string | null
+          roaster_id?: string
+          name?: string
+          slug?: string | null
+          origin?: string | null
+          process?: string | null
+          roast_level?: string | null
+          description?: string | null
+          price?: number | null
+          rating?: number | null
+          image_url?: string | null
+          tasting_notes?: string[] | null
+          flavor_profile?: Json | null
+          altitude?: string | null
+          variety?: string | null
+          harvest?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -47,6 +162,10 @@ export interface Database {
           content: string | null
           brew_method: string | null
           flavor_notes: string[] | null
+          grind_size: string | null
+          water_temp: string | null
+          brew_time: string | null
+          photo_url: string | null
           created_at: string
           updated_at: string
         }
@@ -58,6 +177,10 @@ export interface Database {
           content?: string | null
           brew_method?: string | null
           flavor_notes?: string[] | null
+          grind_size?: string | null
+          water_temp?: string | null
+          brew_time?: string | null
+          photo_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -69,6 +192,10 @@ export interface Database {
           content?: string | null
           brew_method?: string | null
           flavor_notes?: string[] | null
+          grind_size?: string | null
+          water_temp?: string | null
+          brew_time?: string | null
+          photo_url?: string | null
           created_at?: string
           updated_at?: string
         }

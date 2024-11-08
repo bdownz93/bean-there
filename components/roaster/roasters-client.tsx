@@ -6,7 +6,7 @@ import { RoasterHeader } from "@/components/roaster/roaster-header"
 import { AddRoasterForm } from "@/components/forms/add-roaster-form"
 import { MapView } from "@/components/map/map-view"
 import { useStore } from "@/lib/store"
-import { useEffect } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import type { Roaster } from "@/lib/types"
 
 interface RoastersClientProps {
@@ -17,17 +17,20 @@ export function RoastersClient({ initialRoasters }: RoastersClientProps) {
   const [roasters, setRoasters] = useState(initialRoasters)
   const [showMap, setShowMap] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const storeRoasters = useStore((state) => state.roasters)
   const visitedRoasters = useStore((state) => state.visitedRoasters)
-
-  useEffect(() => {
-    setRoasters(storeRoasters)
-  }, [storeRoasters])
+  const queryClient = useQueryClient()
 
   const filteredRoasters = roasters.filter(roaster => 
     roaster.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    roaster.location.toLowerCase().includes(searchQuery.toLowerCase())
+    roaster.location?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const handleRoasterAdded = (newRoaster: Roaster) => {
+    setRoasters(prev => [...prev, newRoaster])
+    // Invalidate queries to refetch data
+    queryClient.invalidateQueries({ queryKey: ['roasters'] })
+    queryClient.invalidateQueries({ queryKey: ['user-stats'] })
+  }
 
   return (
     <div className="container px-4 py-8 mx-auto">
@@ -37,7 +40,7 @@ export function RoastersClient({ initialRoasters }: RoastersClientProps) {
           onToggleMap={() => setShowMap(!showMap)}
           onSearch={setSearchQuery}
         />
-        <AddRoasterForm />
+        <AddRoasterForm onRoasterAdded={handleRoasterAdded} />
       </div>
       
       {showMap && (

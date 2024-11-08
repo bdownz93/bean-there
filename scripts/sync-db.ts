@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
-import { roasters } from '../lib/data'
 import * as dotenv from 'dotenv'
 
-// Load environment variables from .env.local
+// Load environment variables
 dotenv.config({ path: '.env.local' })
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -15,76 +14,27 @@ if (!supabaseUrl || !supabaseServiceKey) {
 // Use service key for admin operations
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-async function syncBeansToSupabase() {
-  console.log('Starting sync...')
+async function cleanDatabase() {
+  console.log('Cleaning database...')
   
-  // First sync roasters
-  for (const roaster of roasters) {
-    console.log(`Syncing roaster: ${roaster.name}`)
+  try {
+    // Delete all data in reverse order of dependencies
+    await supabase.from('reviews').delete().neq('id', '')
+    await supabase.from('beans').delete().neq('id', '')
+    await supabase.from('roasters').delete().neq('id', '')
     
-    const { error: roasterError } = await supabase
-      .from('roasters')
-      .upsert({
-        id: roaster.id,
-        name: roaster.name,
-        slug: roaster.slug,
-        location: roaster.location,
-        description: roaster.description,
-        logo_url: roaster.logo,
-        rating: roaster.rating,
-        coordinates: roaster.coordinates,
-        specialties: roaster.specialties,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-
-    if (roasterError) {
-      console.error(`Error syncing roaster ${roaster.name}:`, roasterError)
-      throw roasterError
-    }
-
-    // Then sync beans for each roaster
-    for (const bean of roaster.beans) {
-      console.log(`Syncing bean: ${bean.name}`)
-      
-      const { error: beanError } = await supabase
-        .from('beans')
-        .upsert({
-          id: bean.id,
-          roaster_id: roaster.id,
-          name: bean.name,
-          slug: bean.id,
-          origin: bean.origin,
-          process: bean.process,
-          roast_level: bean.roastLevel,
-          description: bean.description,
-          price: bean.price,
-          rating: bean.rating,
-          image_url: bean.image,
-          tasting_notes: bean.tastingNotes,
-          flavor_profile: bean.flavorProfile,
-          altitude: bean.altitude,
-          variety: bean.variety,
-          harvest: bean.harvest,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-
-      if (beanError) {
-        console.error(`Error syncing bean ${bean.name}:`, beanError)
-        throw beanError
-      }
-    }
+    console.log('Database cleaned successfully!')
+  } catch (error) {
+    console.error('Error cleaning database:', error)
+    throw error
   }
-  
-  console.log('Sync completed successfully!')
 }
 
 async function main() {
   try {
-    await syncBeansToSupabase()
+    await cleanDatabase()
   } catch (error) {
-    console.error('Error syncing database:', error)
+    console.error('Error:', error)
     process.exit(1)
   }
 }

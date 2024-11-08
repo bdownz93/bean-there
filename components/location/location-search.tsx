@@ -12,6 +12,7 @@ interface Location {
   name: string
   lat: number
   lng: number
+  placeId: string // Added for unique identification
 }
 
 interface LocationSearchProps {
@@ -67,7 +68,8 @@ export function LocationSearch({ onLocationSelect }: LocationSearchProps) {
       const formattedLocations = data.map((item: any) => ({
         name: item.display_name,
         lat: parseFloat(item.lat),
-        lng: parseFloat(item.lon)
+        lng: parseFloat(item.lon),
+        placeId: item.place_id.toString() // Use place_id as unique identifier
       })).filter(location => 
         !isNaN(location.lat) && 
         !isNaN(location.lng) && 
@@ -107,6 +109,52 @@ export function LocationSearch({ onLocationSelect }: LocationSearchProps) {
     )
   }
 
+  const renderLocationList = () => (
+    <Command shouldFilter={false}>
+      <CommandInput 
+        placeholder="Search locations..." 
+        value={value}
+        onValueChange={setValue}
+      />
+      <CommandList>
+        {loading && (
+          <CommandEmpty>Searching locations...</CommandEmpty>
+        )}
+        {!loading && error && (
+          <CommandEmpty>{error}</CommandEmpty>
+        )}
+        {!loading && !error && value.length < 3 && (
+          <CommandEmpty>Enter at least 3 characters to search...</CommandEmpty>
+        )}
+        {locations.length > 0 && (
+          <CommandGroup>
+            {locations.map((location) => (
+              <CommandItem
+                key={location.placeId}
+                value={location.name}
+                onSelect={() => {
+                  setValue(location.name)
+                  onLocationSelect(location)
+                  setOpen(false)
+                  setDialogOpen(false)
+                }}
+              >
+                <MapPin className="mr-2 h-4 w-4" />
+                {location.name}
+                <Check
+                  className={cn(
+                    "ml-auto h-4 w-4",
+                    value === location.name ? "opacity-100" : "opacity-0"
+                  )}
+                />
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+      </CommandList>
+    </Command>
+  )
+
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
@@ -123,48 +171,7 @@ export function LocationSearch({ onLocationSelect }: LocationSearchProps) {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[400px] p-0" align="start">
-          <Command shouldFilter={false}>
-            <CommandInput 
-              placeholder="Search locations..." 
-              value={value}
-              onValueChange={setValue}
-            />
-            <CommandList>
-              {loading && (
-                <CommandEmpty>Searching locations...</CommandEmpty>
-              )}
-              {!loading && error && (
-                <CommandEmpty>{error}</CommandEmpty>
-              )}
-              {!loading && !error && value.length < 3 && (
-                <CommandEmpty>Enter at least 3 characters to search...</CommandEmpty>
-              )}
-              {locations.length > 0 && (
-                <CommandGroup>
-                  {locations.map((location) => (
-                    <CommandItem
-                      key={`${location.lat}-${location.lng}`}
-                      value={location.name}
-                      onSelect={() => {
-                        setValue(location.name)
-                        onLocationSelect(location)
-                        setOpen(false)
-                      }}
-                    >
-                      <MapPin className="mr-2 h-4 w-4" />
-                      {location.name}
-                      <Check
-                        className={cn(
-                          "ml-auto h-4 w-4",
-                          value === location.name ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
+          {renderLocationList()}
         </PopoverContent>
       </Popover>
 
@@ -173,48 +180,7 @@ export function LocationSearch({ onLocationSelect }: LocationSearchProps) {
           <DialogHeader>
             <DialogTitle>Search Location</DialogTitle>
           </DialogHeader>
-          <Command shouldFilter={false}>
-            <CommandInput 
-              placeholder="Search locations..." 
-              value={value}
-              onValueChange={setValue}
-            />
-            <CommandList>
-              {loading && (
-                <CommandEmpty>Searching locations...</CommandEmpty>
-              )}
-              {!loading && error && (
-                <CommandEmpty>{error}</CommandEmpty>
-              )}
-              {!loading && !error && value.length < 3 && (
-                <CommandEmpty>Enter at least 3 characters to search...</CommandEmpty>
-              )}
-              {locations.length > 0 && (
-                <CommandGroup>
-                  {locations.map((location) => (
-                    <CommandItem
-                      key={`${location.lat}-${location.lng}`}
-                      value={location.name}
-                      onSelect={() => {
-                        setValue(location.name)
-                        onLocationSelect(location)
-                        setDialogOpen(false)
-                      }}
-                    >
-                      <MapPin className="mr-2 h-4 w-4" />
-                      {location.name}
-                      <Check
-                        className={cn(
-                          "ml-auto h-4 w-4",
-                          value === location.name ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
+          {renderLocationList()}
         </DialogContent>
       </Dialog>
     </>

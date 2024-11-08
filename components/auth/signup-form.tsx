@@ -7,16 +7,18 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Icons } from "@/components/icons"
 import { useToast } from "@/components/ui/use-toast"
-import { useAuth } from "./auth-provider"
+import { supabase } from "@/lib/supabase"
 
 interface FormData {
   name: string
+  username: string
   email: string
   password: string
 }
 
 const initialFormData: FormData = {
   name: "",
+  username: "",
   email: "",
   password: ""
 }
@@ -24,7 +26,6 @@ const initialFormData: FormData = {
 export function SignUpForm() {
   const router = useRouter()
   const { toast } = useToast()
-  const { signUp } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [formErrors, setFormErrors] = useState<Partial<FormData>>({})
@@ -34,6 +35,12 @@ export function SignUpForm() {
 
     if (!formData.name.trim()) {
       errors.name = "Name is required"
+    }
+
+    if (!formData.username.trim()) {
+      errors.username = "Username is required"
+    } else if (!/^[a-zA-Z0-9_]{3,20}$/.test(formData.username)) {
+      errors.username = "Username must be 3-20 characters and can only contain letters, numbers, and underscores"
     }
 
     if (!formData.email.trim()) {
@@ -58,7 +65,7 @@ export function SignUpForm() {
     setFormErrors(prev => ({ ...prev, [name]: "" }))
   }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm() || isLoading) {
@@ -68,25 +75,51 @@ export function SignUpForm() {
     setIsLoading(true)
 
     try {
-      await signUp(formData.email, formData.password, formData.name)
-      
-      toast({
-        title: "Success!",
-        description: "Please check your email to verify your account.",
-        duration: 5000
+      // First check if username exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', formData.username)
+        .single()
+
+      if (existingUser) {
+        setFormErrors(prev => ({
+          ...prev,
+          username: "This username is already taken"
+        }))
+        return
+      }
+
+      // If no existing user, proceed with signup
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+            username: formData.username,
+            avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.username}`
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`
+        }
       })
-      
-      router.push("/login?message=Please check your email to verify your account")
+
+      if (error) throw error
+
+      if (data.user) {
+        toast({
+          title: "Success!",
+          description: "Please check your email to verify your account.",
+          duration: 5000
+        })
+        router.push('/login?message=Please check your email to verify your account')
+      }
     } catch (error) {
-      const message = error instanceof Error 
-        ? error.message 
-        : "An error occurred during signup. Please try again."
-      
+      console.error('Signup error:', error)
       toast({
         title: "Error",
-        description: message,
-        variant: "destructive",
-        duration: 5000
+        description: error instanceof Error ? error.message : "Failed to create account",
+        variant: "destructive"
       })
     } finally {
       setIsLoading(false)
@@ -110,6 +143,25 @@ export function SignUpForm() {
         {formErrors.name && (
           <p id="name-error" className="text-sm text-destructive">
             {formErrors.name}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="username">Username</Label>
+        <Input
+          id="username"
+          name="username"
+          type="text"
+          value={formData.username}
+          onChange={handleChange}
+          placeholder="Choose a username"
+          disabled={isLoading}
+          aria-describedby={formErrors.username ? "username-error" : undefined}
+        />
+        {formErrors.username && (
+          <p id="username-error" className="text-sm text-destructive">
+            {formErrors.username}
           </p>
         )}
       </div>

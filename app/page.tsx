@@ -1,21 +1,17 @@
 import { BeanList } from "@/components/bean/bean-list"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { roasters } from "@/lib/data"
+import { getFeaturedBeans, getAllRoasters } from "@/lib/supabase"
 import Link from "next/link"
 import { Coffee, MapPin, Star, TrendingUp } from "lucide-react"
 import { RoasterCard } from "@/components/roaster/roaster-card"
 import { RecentReviewsWrapper } from "@/components/reviews/recent-reviews-wrapper"
 import { ReviewCount } from "@/components/stats/review-count"
 
-export default function Home() {
-  // Get featured beans from our roasters data
-  const featuredBeans = roasters.flatMap(roaster => 
-    roaster.beans.map(bean => ({
-      ...bean,
-      roaster: roaster.name
-    }))
-  ).slice(0, 3)
+export default async function Home() {
+  // Get featured beans and roasters
+  const featuredBeans = await getFeaturedBeans()
+  const roasters = await getAllRoasters()
 
   return (
     <div className="min-h-screen -mt-14">
@@ -79,7 +75,7 @@ export default function Home() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold">
-                    {roasters.reduce((acc, r) => acc + r.beans.length, 0)}
+                    {featuredBeans.length}
                   </div>
                   <div className="text-muted-foreground">Unique Beans</div>
                 </div>

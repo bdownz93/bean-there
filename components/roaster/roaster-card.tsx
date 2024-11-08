@@ -8,6 +8,10 @@ import { Star, MapPin, Check } from "lucide-react"
 import { RoasterRating } from "@/components/roaster/roaster-rating"
 import { Button } from "@/components/ui/button"
 import { useStore } from "@/lib/store"
+import { useAuth } from "@/components/auth/auth-provider"
+import { toggleVisitedRoaster } from "@/lib/supabase"
+import { useToast } from "@/components/ui/use-toast"
+import { useQueryClient } from "@tanstack/react-query"
 import type { Roaster } from "@/lib/types"
 
 interface RoasterCardProps {
@@ -15,21 +19,62 @@ interface RoasterCardProps {
 }
 
 export function RoasterCard({ roaster }: RoasterCardProps) {
-  const { visitedRoasters = [], toggleVisited } = useStore((state) => ({
-    visitedRoasters: state.visitedRoasters || [],
-    toggleVisited: state.toggleVisited
-  }))
-  
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+  const visitedRoasters = useStore((state) => state.visitedRoasters || [])
   const isVisited = visitedRoasters.includes(roaster.id)
+
+  const handleToggleVisited = async (e: React.MouseEvent) => {
+    e.preventDefault() // Prevent navigation
+
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to mark roasters as visited",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      await toggleVisitedRoaster(user.id, roaster.id)
+      
+      // Update local state through store
+      useStore.setState((state) => ({
+        visitedRoasters: isVisited
+          ? state.visitedRoasters.filter(id => id !== roaster.id)
+          : [...(state.visitedRoasters || []), roaster.id]
+      }))
+
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] })
+      queryClient.invalidateQueries({ queryKey: ['user-stats'] })
+
+      toast({
+        title: isVisited ? "Roaster unmarked" : "Roaster marked as visited",
+        description: isVisited 
+          ? `Removed ${roaster.name} from your visited roasters`
+          : `Added ${roaster.name} to your visited roasters`
+      })
+    } catch (error) {
+      console.error('Error toggling visited status:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update visited status",
+        variant: "destructive"
+      })
+    }
+  }
 
   return (
     <Card className="hover:bg-accent hover:text-accent-foreground transition-colors">
       <CardHeader>
         <div className="flex items-start gap-4">
-          {roaster.logo && (
+          {roaster.logo_url && (
             <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0">
               <Image
-                src={roaster.logo}
+                src={roaster.logo_url}
                 alt={roaster.name}
                 fill
                 className="object-cover"
@@ -51,10 +96,7 @@ export function RoasterCard({ roaster }: RoasterCardProps) {
                 variant={isVisited ? "default" : "outline"}
                 size="sm"
                 className="shrink-0"
-                onClick={(e) => {
-                  e.preventDefault()
-                  toggleVisited(roaster.id)
-                }}
+                onClick={handleToggleVisited}
               >
                 <Check className={`h-4 w-4 ${isVisited ? "text-white" : ""}`} />
                 <span className="ml-1">
@@ -70,7 +112,7 @@ export function RoasterCard({ roaster }: RoasterCardProps) {
           {roaster.description}
         </p>
         <div className="flex flex-wrap gap-2">
-          {roaster.specialties.map((specialty) => (
+          {roaster.specialties?.map((specialty) => (
             <Badge key={specialty} variant="secondary">
               {specialty}
             </Badge>
