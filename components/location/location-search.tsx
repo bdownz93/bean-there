@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Check, ChevronsUpDown, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -21,6 +22,7 @@ const NOMINATIM_API = "https://nominatim.openstreetmap.org"
 
 export function LocationSearch({ onLocationSelect }: LocationSearchProps) {
   const [open, setOpen] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
   const [value, setValue] = useState("")
   const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(false)
@@ -86,7 +88,6 @@ export function LocationSearch({ onLocationSelect }: LocationSearchProps) {
     }
   }
 
-  // Debounce the search to avoid too many API calls
   useEffect(() => {
     const timer = setTimeout(() => {
       if (value) {
@@ -107,62 +108,115 @@ export function LocationSearch({ onLocationSelect }: LocationSearchProps) {
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between"
-        >
-          {value || "Search for a location..."}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput 
-            placeholder="Search locations..." 
-            value={value}
-            onValueChange={setValue}
-          />
-          <CommandList>
-            {loading && (
-              <CommandEmpty>Searching locations...</CommandEmpty>
-            )}
-            {!loading && error && (
-              <CommandEmpty>{error}</CommandEmpty>
-            )}
-            {!loading && !error && value.length < 3 && (
-              <CommandEmpty>Enter at least 3 characters to search...</CommandEmpty>
-            )}
-            {locations.length > 0 && (
-              <CommandGroup>
-                {locations.map((location) => (
-                  <CommandItem
-                    key={`${location.lat}-${location.lng}`}
-                    value={location.name}
-                    onSelect={() => {
-                      setValue(location.name)
-                      onLocationSelect(location)
-                      setOpen(false)
-                    }}
-                  >
-                    <MapPin className="mr-2 h-4 w-4" />
-                    {location.name}
-                    <Check
-                      className={cn(
-                        "ml-auto h-4 w-4",
-                        value === location.name ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between"
+            onClick={() => setDialogOpen(true)}
+          >
+            {value || "Search for a location..."}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[400px] p-0" align="start">
+          <Command shouldFilter={false}>
+            <CommandInput 
+              placeholder="Search locations..." 
+              value={value}
+              onValueChange={setValue}
+            />
+            <CommandList>
+              {loading && (
+                <CommandEmpty>Searching locations...</CommandEmpty>
+              )}
+              {!loading && error && (
+                <CommandEmpty>{error}</CommandEmpty>
+              )}
+              {!loading && !error && value.length < 3 && (
+                <CommandEmpty>Enter at least 3 characters to search...</CommandEmpty>
+              )}
+              {locations.length > 0 && (
+                <CommandGroup>
+                  {locations.map((location) => (
+                    <CommandItem
+                      key={`${location.lat}-${location.lng}`}
+                      value={location.name}
+                      onSelect={() => {
+                        setValue(location.name)
+                        onLocationSelect(location)
+                        setOpen(false)
+                      }}
+                    >
+                      <MapPin className="mr-2 h-4 w-4" />
+                      {location.name}
+                      <Check
+                        className={cn(
+                          "ml-auto h-4 w-4",
+                          value === location.name ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Search Location</DialogTitle>
+          </DialogHeader>
+          <Command shouldFilter={false}>
+            <CommandInput 
+              placeholder="Search locations..." 
+              value={value}
+              onValueChange={setValue}
+            />
+            <CommandList>
+              {loading && (
+                <CommandEmpty>Searching locations...</CommandEmpty>
+              )}
+              {!loading && error && (
+                <CommandEmpty>{error}</CommandEmpty>
+              )}
+              {!loading && !error && value.length < 3 && (
+                <CommandEmpty>Enter at least 3 characters to search...</CommandEmpty>
+              )}
+              {locations.length > 0 && (
+                <CommandGroup>
+                  {locations.map((location) => (
+                    <CommandItem
+                      key={`${location.lat}-${location.lng}`}
+                      value={location.name}
+                      onSelect={() => {
+                        setValue(location.name)
+                        onLocationSelect(location)
+                        setDialogOpen(false)
+                      }}
+                    >
+                      <MapPin className="mr-2 h-4 w-4" />
+                      {location.name}
+                      <Check
+                        className={cn(
+                          "ml-auto h-4 w-4",
+                          value === location.name ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

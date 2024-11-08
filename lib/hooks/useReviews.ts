@@ -11,44 +11,8 @@ export interface Review {
   bean_id: string
   rating: number
   content: string
-  brew_method?: string
-  brew_time?: string
-  water_temp?: string
-  grind_size?: string
-  dose_grams?: number
-  yield_grams?: number
-  flavor_notes?: string[]
-  photo_url?: string
-  aroma_rating?: number
-  body_rating?: number
-  acidity_rating?: number
-  sweetness_rating?: number
-  aftertaste_rating?: number
   created_at: string
   updated_at: string
-  users?: {
-    name: string
-    username: string
-    avatar_url: string
-  }
-}
-
-interface AddReviewData {
-  rating: number
-  content: string
-  brewMethod?: string
-  brewTime?: string
-  waterTemp?: string
-  grindSize?: string
-  doseGrams?: number
-  yieldGrams?: number
-  flavorNotes?: string[]
-  photoUrl?: string
-  aromaRating?: number
-  bodyRating?: number
-  acidityRating?: number
-  sweetnessRating?: number
-  aftertasteRating?: number
 }
 
 export function useReviews(beanId: string) {
@@ -82,25 +46,8 @@ export function useReviews(beanId: string) {
   })
 
   const addReview = useMutation({
-    mutationFn: async ({
-      rating,
-      content,
-      brewMethod,
-      brewTime,
-      waterTemp,
-      grindSize,
-      doseGrams,
-      yieldGrams,
-      flavorNotes,
-      photoUrl,
-      aromaRating,
-      bodyRating,
-      acidityRating,
-      sweetnessRating,
-      aftertasteRating
-    }: AddReviewData) => {
+    mutationFn: async ({ rating, content }: { rating: number, content: string }) => {
       if (!user) throw new Error("Must be logged in to review")
-      if (!rating) throw new Error("Rating is required")
 
       const { data, error } = await supabase
         .from("reviews")
@@ -109,20 +56,7 @@ export function useReviews(beanId: string) {
             user_id: user.id,
             bean_id: beanId,
             rating,
-            content,
-            brew_method: brewMethod,
-            brew_time: brewTime,
-            water_temp: waterTemp,
-            grind_size: grindSize,
-            dose_grams: doseGrams,
-            yield_grams: yieldGrams,
-            flavor_notes: flavorNotes,
-            photo_url: photoUrl,
-            aroma_rating: aromaRating,
-            body_rating: bodyRating,
-            acidity_rating: acidityRating,
-            sweetness_rating: sweetnessRating,
-            aftertaste_rating: aftertasteRating
+            content
           }
         ])
         .select()
@@ -150,10 +84,50 @@ export function useReviews(beanId: string) {
     }
   })
 
+  const updateReview = useMutation({
+    mutationFn: async ({ id, rating, content }: { id: string, rating: number, content: string }) => {
+      const { data, error } = await supabase
+        .from("reviews")
+        .update({ rating, content })
+        .eq("id", id)
+        .select()
+
+      if (error) throw error
+      return data[0]
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reviews", beanId] })
+      toast({
+        title: "Review updated",
+        description: "Your review has been updated successfully."
+      })
+    }
+  })
+
+  const deleteReview = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("reviews")
+        .delete()
+        .eq("id", id)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reviews", beanId] })
+      toast({
+        title: "Review deleted",
+        description: "Your review has been deleted successfully."
+      })
+    }
+  })
+
   return {
     reviews,
     isLoading,
     error,
-    addReview
+    addReview,
+    updateReview,
+    deleteReview
   }
 }
