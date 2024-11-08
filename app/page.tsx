@@ -9,6 +9,7 @@ import { RecentReviewsWrapper } from "@/components/reviews/recent-reviews-wrappe
 import { ReviewCount } from "@/components/stats/review-count"
 
 export default async function Home() {
+  // Get featured beans and roasters
   const [featuredBeans, roasters] = await Promise.all([
     getFeaturedBeans().catch(() => []),
     getAllRoasters().catch(() => [])
