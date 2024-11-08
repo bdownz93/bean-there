@@ -22,7 +22,10 @@ export async function getFeaturedBeans() {
     .order('rating', { ascending: false })
     .limit(3)
 
-  if (error) throw error
+  if (error) {
+    console.error('Error fetching featured beans:', error)
+    return []
+  }
   return data || []
 }
 
@@ -35,7 +38,10 @@ export async function getAllBeans() {
     `)
     .order('created_at', { ascending: false })
 
-  if (error) throw error
+  if (error) {
+    console.error('Error fetching beans:', error)
+    return []
+  }
   return data || []
 }
 
@@ -49,8 +55,11 @@ export async function getBeanById(id: string) {
     .eq('id', id)
     .single()
 
-  if (error) throw error
-  return data || []
+  if (error) {
+    console.error('Error fetching bean:', error)
+    return null
+  }
+  return data
 }
 
 export async function getBeansByRoaster(roasterId: string) {
@@ -60,7 +69,10 @@ export async function getBeansByRoaster(roasterId: string) {
     .eq('roaster_id', roasterId)
     .order('created_at', { ascending: false })
 
-  if (error) throw error
+  if (error) {
+    console.error('Error fetching roaster beans:', error)
+    return []
+  }
   return data || []
 }
 
@@ -70,15 +82,21 @@ export async function getAllRoasters() {
     .from('roasters')
     .select(`
       *,
-      created_by (
+      beans (
         id,
         name,
-        username
+        origin,
+        roast_level,
+        price,
+        rating
       )
     `)
     .order('created_at', { ascending: false })
 
-  if (error) throw error
+  if (error) {
+    console.error('Error fetching roasters:', error)
+    return []
+  }
   return data || []
 }
 
@@ -87,18 +105,16 @@ export async function getRoasterById(id: string) {
     .from('roasters')
     .select(`
       *,
-      beans(*),
-      created_by (
-        id,
-        name,
-        username
-      )
+      beans(*)
     `)
     .eq('id', id)
     .single()
 
-  if (error) throw error
-  return data || []
+  if (error) {
+    console.error('Error fetching roaster:', error)
+    return null
+  }
+  return data
 }
 
 export async function getRoasterBySlug(slug: string) {
@@ -106,57 +122,16 @@ export async function getRoasterBySlug(slug: string) {
     .from('roasters')
     .select(`
       *,
-      beans(*),
-      created_by (
-        id,
-        name,
-        username
-      )
+      beans(*)
     `)
     .eq('slug', slug)
     .single()
 
-  if (error) throw error
-  return data || []
-}
-
-// Visited roasters functions
-export async function toggleVisitedRoaster(userId: string, roasterId: string) {
-  // First check if the roaster is already visited
-  const { data: existing } = await supabase
-    .from('visited_roasters')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('roaster_id', roasterId)
-    .single()
-
-  if (existing) {
-    // Remove from visited
-    const { error } = await supabase
-      .from('visited_roasters')
-      .delete()
-      .eq('user_id', userId)
-      .eq('roaster_id', roasterId)
-
-    if (error) throw error
-  } else {
-    // Add to visited
-    const { error } = await supabase
-      .from('visited_roasters')
-      .insert({ user_id: userId, roaster_id: roasterId })
-
-    if (error) throw error
+  if (error) {
+    console.error('Error fetching roaster:', error)
+    return null
   }
-}
-
-export async function getVisitedRoasters(userId: string) {
-  const { data, error } = await supabase
-    .from('visited_roasters')
-    .select('roaster_id')
-    .eq('user_id', userId)
-
-  if (error) throw error
-  return (data || []).map(visit => visit.roaster_id)
+  return data
 }
 
 // Review-related functions
@@ -178,8 +153,11 @@ export async function addReview(review: {
     .select()
     .single()
 
-  if (error) throw error
-  return data || []
+  if (error) {
+    console.error('Error adding review:', error)
+    throw error
+  }
+  return data
 }
 
 export async function getReviews(beanId: string) {
@@ -197,7 +175,10 @@ export async function getReviews(beanId: string) {
     .eq('bean_id', beanId)
     .order('created_at', { ascending: false })
 
-  if (error) throw error
+  if (error) {
+    console.error('Error fetching reviews:', error)
+    return []
+  }
   return data || []
 }
 
@@ -210,41 +191,59 @@ export async function getUserProfile(userId: string) {
       badges:user_badges(
         badge:badges(*)
       ),
-      stats:user_stats(*)
+      stats:reviews(count),
+      roasters:roasters(count),
+      beans:beans(count),
+      journal:coffee_journal(
+        *,
+        bean:beans(*)
+      )
     `)
     .eq('id', userId)
     .single()
 
-  if (userError) throw userError
+  if (userError) {
+    console.error('Error fetching user profile:', userError)
+    return null
+  }
 
   const { data: followers, error: followersError } = await supabase
     .from('followers')
     .select('follower_id')
     .eq('following_id', userId)
 
-  if (followersError) throw followersError
+  if (followersError) {
+    console.error('Error fetching followers:', followersError)
+    return null
+  }
 
   const { data: following, error: followingError } = await supabase
     .from('followers')
     .select('following_id')
     .eq('follower_id', userId)
 
-  if (followingError) throw followingError
+  if (followingError) {
+    console.error('Error fetching following:', followingError)
+    return null
+  }
 
   return {
     ...user,
-    followers_count: followers.length,
-    following_count: following.length
+    followers_count: followers?.length || 0,
+    following_count: following?.length || 0
   }
 }
 
-export async function updateUserProfile(userId: string, data: any) {
+export async function updateUserProfile(userId: string, data: Partial<User>) {
   const { error } = await supabase
     .from('users')
     .update(data)
     .eq('id', userId)
 
-  if (error) throw error
+  if (error) {
+    console.error('Error updating user profile:', error)
+    throw error
+  }
 }
 
 export async function followUser(followerId: string, followingId: string) {
@@ -252,7 +251,10 @@ export async function followUser(followerId: string, followingId: string) {
     .from('followers')
     .insert({ follower_id: followerId, following_id: followingId })
 
-  if (error) throw error
+  if (error) {
+    console.error('Error following user:', error)
+    throw error
+  }
 }
 
 export async function unfollowUser(followerId: string, followingId: string) {
@@ -262,7 +264,26 @@ export async function unfollowUser(followerId: string, followingId: string) {
     .eq('follower_id', followerId)
     .eq('following_id', followingId)
 
-  if (error) throw error
+  if (error) {
+    console.error('Error unfollowing user:', error)
+    throw error
+  }
+}
+
+export async function addJournalEntry(userId: string, beanId: string, notes: string, isPrivate: boolean) {
+  const { error } = await supabase
+    .from('coffee_journal')
+    .insert({
+      user_id: userId,
+      bean_id: beanId,
+      notes,
+      private: isPrivate
+    })
+
+  if (error) {
+    console.error('Error adding journal entry:', error)
+    throw error
+  }
 }
 
 export async function getUserBadges(userId: string) {
@@ -275,6 +296,9 @@ export async function getUserBadges(userId: string) {
     .eq('user_id', userId)
     .order('earned_at', { ascending: false })
 
-  if (error) throw error
+  if (error) {
+    console.error('Error fetching user badges:', error)
+    return []
+  }
   return data || []
 }

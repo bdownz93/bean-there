@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/components/auth/auth-provider"
+import { Toaster } from "@/components/ui/toaster"
 import { useState } from "react"
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -25,6 +26,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           storageKey="bean-theme"
         >
           {children}
+          <Toaster />
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>

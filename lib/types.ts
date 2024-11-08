@@ -2,16 +2,17 @@ export interface User {
   id: string
   username: string
   name: string
-  avatar_url: string
-  bio: string | null
-  location: string | null
-  experience_points: number
+  avatar: string
+  bio: string
+  joinedDate: string
+  followers: string[]
+  following: string[]
+  reviews: string[]
+  badges: Badge[]
+  triedBeans: string[]
   level: number
-  favorite_coffee_styles: string[]
-  wishlist_beans: string[]
-  favorite_beans: string[]
-  created_at: string
-  updated_at: string
+  reviewCount: number
+  favoriteCoffeeStyles: string[]
 }
 
 export interface Badge {
@@ -19,35 +20,66 @@ export interface Badge {
   name: string
   description: string
   icon: string
-  category: string
-  requirements: Record<string, any>
-  created_at: string
+  earnedDate: string
 }
 
-export interface UserBadge {
+export interface Roaster {
   id: string
-  user_id: string
-  badge_id: string
-  badge: Badge
-  earned_at: string
+  name: string
+  slug: string
+  location: string
+  description: string
+  logo_url: string
+  rating: number
+  coordinates: {
+    lat: number
+    lng: number
+  }
+  specialties: string[]
+  beans: Bean[]
 }
 
-export interface JournalEntry {
+export interface Bean {
   id: string
-  user_id: string
-  bean_id: string
-  notes: string
-  private: boolean
-  created_at: string
-  updated_at: string
-  bean: Bean
+  name: string
+  roaster: string
+  roasterId: string
+  origin: string
+  roastLevel: string
+  process: string
+  description: string
+  price: number
+  rating: number
+  tastingNotes: string[]
+  altitude: string
+  variety: string
+  harvest: string
+  image: string
+  flavorProfile: FlavorProfile[]
 }
 
-export interface UserStats {
-  reviews_count: number
-  roasters_added: number
-  beans_added: number
-  unique_origins: number
-  followers_count: number
-  following_count: number
+export interface FlavorProfile {
+  name: string
+  intensity: number
+}
+
+export interface Review {
+  id: string
+  userId: string
+  userName: string
+  userImage: string
+  beanId: string
+  bean: string
+  roaster: string
+  rating: number
+  content: string
+  date: string
+  brewMethod?: string
+  flavorNotes?: string[]
+}
+
+export interface Location {
+  name: string
+  lat: number
+  lng: number
 }

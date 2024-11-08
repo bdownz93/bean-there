@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -18,23 +17,19 @@ import { Coffee } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/components/auth/auth-provider"
+import { useQueryClient } from "@tanstack/react-query"
 import type { Roaster } from "@/lib/types"
 
 interface Location {
   name: string
   lat: number
   lng: number
-  placeId: string
 }
 
-interface AddRoasterFormProps {
-  onRoasterAdded: (roaster: Roaster) => void
-}
-
-export function AddRoasterForm({ onRoasterAdded }: AddRoasterFormProps) {
-  const router = useRouter()
-  const { toast } = useToast()
+export function AddRoasterForm() {
   const { user } = useAuth()
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -68,9 +63,9 @@ export function AddRoasterForm({ onRoasterAdded }: AddRoasterFormProps) {
       const slug = name.toLowerCase().replace(/\s+/g, "-")
       
       const roasterData = {
+        created_by: user.id,
         name,
         slug,
-        created_by: user.id,
         location: selectedLocation.name,
         description: formData.get("description") as string,
         rating: 0,
@@ -85,40 +80,24 @@ export function AddRoasterForm({ onRoasterAdded }: AddRoasterFormProps) {
       const { data, error } = await supabase
         .from('roasters')
         .insert([roasterData])
-        .select(`
-          *,
-          created_by (
-            id,
-            name,
-            username
-          )
-        `)
+        .select()
         .single()
 
-      if (error) {
-        if (error.code === '23505') { // Unique constraint violation
-          throw new Error('A roaster with this name already exists')
-        }
-        throw error
-      }
+      if (error) throw error
 
-      const newRoaster: Roaster = {
-        ...data,
-        beans: []
-      }
+      // Invalidate and refetch roasters query
+      await queryClient.invalidateQueries({ queryKey: ['roasters'] })
 
-      onRoasterAdded(newRoaster)
       setOpen(false)
       toast({
         title: "Success",
         description: "Roaster added successfully"
       })
-      router.refresh()
     } catch (error) {
       console.error('Error adding roaster:', error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add roaster. Please try again.",
+        description: "Failed to add roaster. Please try again.",
         variant: "destructive"
       })
     } finally {

@@ -9,9 +9,10 @@ import { RecentReviewsWrapper } from "@/components/reviews/recent-reviews-wrappe
 import { ReviewCount } from "@/components/stats/review-count"
 
 export default async function Home() {
-  // Get featured beans and roasters
-  const featuredBeans = await getFeaturedBeans()
-  const roasters = await getAllRoasters()
+  const [featuredBeans, roasters] = await Promise.all([
+    getFeaturedBeans().catch(() => []),
+    getAllRoasters().catch(() => [])
+  ])
 
   return (
     <div className="min-h-screen -mt-14">
@@ -134,7 +135,7 @@ export default async function Home() {
         </section>
 
         {/* Recent Reviews Section */}
-        <RecentReviewsWrapper />
+        <RecentReviewsWrapper initialReviews={[]} />
       </div>
     </div>
   )

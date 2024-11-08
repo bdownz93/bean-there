@@ -2,17 +2,13 @@
 const nextConfig = {
   output: 'standalone',
   images: {
-    unoptimized: true,
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com'
-      },
-      {
-        protocol: 'https',
-        hostname: 'api.dicebear.com'
-      }
-    ]
+    domains: [
+      'images.unsplash.com',
+      'api.dicebear.com',
+      'localhost',
+      'res.cloudinary.com'
+    ],
+    unoptimized: true
   },
   trailingSlash: true,
   eslint: {
