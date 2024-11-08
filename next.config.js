@@ -1,8 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Change from 'export' to use server-side features
   output: 'standalone',
-  images: { 
+  images: {
     unoptimized: true,
     remotePatterns: [
       {
