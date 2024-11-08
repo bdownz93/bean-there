@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
-import { Coffee, LogIn, Menu, UserPlus } from "lucide-react"
+import { LogIn, Menu, UserPlus } from "lucide-react"
 import { useAuth } from "@/components/auth/auth-provider"
 import { UserNav } from "@/components/user/user-nav"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { useState } from "react"
+import { Logo } from "@/components/ui/logo"
 
 const routes = [
   {
@@ -40,10 +41,7 @@ export function Navigation() {
       <div className="container px-4 mx-auto max-w-7xl">
         <nav className="flex h-14 items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2 font-bold">
-              <Coffee className="h-5 w-5" />
-              <span>Bean There</span>
-            </Link>
+            <Logo />
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-6 text-sm font-medium">
@@ -100,14 +98,7 @@ export function Navigation() {
               <SheetContent side="right" className="w-[300px] sm:w-[400px] pr-0">
                 <SheetHeader>
                   <SheetTitle>
-                    <Link 
-                      href="/" 
-                      className="flex items-center gap-2 font-bold"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      <Coffee className="h-5 w-5" />
-                      <span>Bean There</span>
-                    </Link>
+                    <Logo />
                   </SheetTitle>
                 </SheetHeader>
                 <div className="flex flex-col h-full py-4">
