@@ -1,11 +1,10 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState } from "react"
-import { User } from "@supabase/supabase-js"
+import { User } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase"
-import { getAuthErrorMessage } from "@/lib/auth-utils"
 
 interface AuthContextType {
   user: User | null
@@ -165,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Signup error:", error)
       toast({
         title: "Error",
-        description: getAuthErrorMessage(error),
+        description: "Failed to create account. Please try again.",
         variant: "destructive"
       })
       throw error
@@ -184,7 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       toast({
         title: "Error",
-        description: getAuthErrorMessage(error),
+        description: "Invalid email or password",
         variant: "destructive"
       })
       throw error
@@ -204,7 +203,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       toast({
         title: "Error",
-        description: getAuthErrorMessage(error),
+        description: "Failed to sign in with Google",
         variant: "destructive"
       })
       throw error
@@ -224,7 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       toast({
         title: "Error",
-        description: getAuthErrorMessage(error),
+        description: "Failed to sign in with GitHub",
         variant: "destructive"
       })
       throw error
@@ -239,7 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       toast({
         title: "Error",
-        description: getAuthErrorMessage(error),
+        description: "Failed to sign out",
         variant: "destructive"
       })
     }

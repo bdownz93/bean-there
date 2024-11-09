@@ -6,7 +6,7 @@ import { ActivityFeed } from "@/components/user/activity-feed"
 import { PopularUsers } from "@/components/user/popular-users"
 import { TrendingBeans } from "@/components/bean/trending-beans"
 import { useQuery } from "@tanstack/react-query"
-import { getBeans, getReviews } from "@/lib/supabase"
+import { getAllBeans, getReviews } from "@/lib/supabase"
 
 export default function CommunityPage() {
   const { data: reviews = [], isError: isReviewsError } = useQuery({
@@ -17,7 +17,7 @@ export default function CommunityPage() {
 
   const { data: beans = [], isError: isBeansError } = useQuery({
     queryKey: ['beans'],
-    queryFn: () => getBeans(),
+    queryFn: () => getAllBeans(),
     retry: 1
   })
 
