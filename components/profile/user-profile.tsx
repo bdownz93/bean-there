@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,8 +11,6 @@ import { User as UserIcon, Calendar, Coffee, Edit2 } from "lucide-react"
 import { useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/components/ui/use-toast"
-import { ProfileStats } from "./profile-stats"
-import { ProfileBadges } from "./profile-badges"
 
 interface UserProfileProps {
   userId: string
@@ -21,136 +19,78 @@ interface UserProfileProps {
 export function UserProfile({ userId }: UserProfileProps) {
   const [isEditing, setIsEditing] = useState(false)
   const { toast } = useToast()
-  const queryClient = useQueryClient()
 
-  const { data: userData, isLoading } = useQuery({
+  const { data: userData, isLoading, refetch } = useQuery({
     queryKey: ['user-profile', userId],
     queryFn: async () => {
-      const { data: user, error: userError } = await supabase
+      const { data: user, error } = await supabase
         .from('users')
         .select(`
           *,
-          badges:user_badges (
-            badge:badges (
-              id,
-              name,
-              description,
-              icon,
-              category
-            ),
-            earned_at
-          )
+          user_stats (*)
         `)
         .eq('id', userId)
         .single()
 
-      if (userError) throw userError
-
-      // Get user stats
-      const { data: stats, error: statsError } = await supabase
-        .from('user_stats')
-        .select('*')
-        .eq('user_id', userId)
-        .single()
-
-      if (statsError) {
-        // If stats don't exist yet, return default values
-        return {
-          ...user,
-          stats: {
-            beansCount: 0,
-            roastersCount: 0,
-            reviewsCount: 0,
-            level: 1,
-            experiencePoints: 0,
-            uniqueOrigins: 0
-          },
-          badges: []
-        }
-      }
-
-      return {
-        ...user,
-        stats: {
-          beansCount: stats.beans_tried,
-          roastersCount: stats.roasters_visited,
-          reviewsCount: stats.total_reviews,
-          level: user.level,
-          experiencePoints: user.experience_points,
-          uniqueOrigins: stats.unique_origins
-        },
-        badges: user.badges?.map((badge: any) => ({
-          id: badge.badge.id,
-          name: badge.badge.name,
-          description: badge.badge.description,
-          icon: badge.badge.icon,
-          category: badge.badge.category,
-          earnedAt: badge.earned_at
-        })) || []
-      }
+      if (error) throw error
+      return user
     }
   })
 
-  const updateProfile = useMutation({
-    mutationFn: async (formData: {
-      name: string
-      bio: string | null
-      favorite_coffee_styles: string[]
-    }) => {
+  const [editForm, setEditForm] = useState({
+    name: userData?.name || "",
+    bio: userData?.bio || "",
+    favoriteCoffeeStyles: userData?.favorite_coffee_styles?.join(", ") || ""
+  })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    try {
       const { error } = await supabase
         .from('users')
-        .update(formData)
+        .update({
+          name: editForm.name,
+          bio: editForm.bio,
+          favorite_coffee_styles: editForm.favoriteCoffeeStyles
+            .split(",")
+            .map(style => style.trim())
+            .filter(Boolean)
+        })
         .eq('id', userId)
 
       if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-profile', userId] })
+
+      await refetch()
       setIsEditing(false)
+      
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully."
       })
-    },
-    onError: () => {
+    } catch (error) {
+      console.error('Error updating profile:', error)
       toast({
         title: "Error",
         description: "Failed to update profile. Please try again.",
         variant: "destructive"
       })
     }
-  })
-
-  const [editForm, setEditForm] = useState({
-    name: "",
-    bio: "",
-    favoriteCoffeeStyles: ""
-  })
-
-  // Update form when user data is loaded
-  if (userData && !editForm.name && !isEditing) {
-    setEditForm({
-      name: userData.name || "",
-      bio: userData.bio || "",
-      favoriteCoffeeStyles: userData.favorite_coffee_styles?.join(", ") || ""
-    })
   }
 
   if (isLoading) {
     return (
-      <div className="space-y-8">
-        <Card>
-          <CardContent className="p-6">
-            <div className="animate-pulse space-y-4">
-              <div className="h-20 w-20 rounded-full bg-muted" />
-              <div className="space-y-2">
-                <div className="h-4 bg-muted rounded w-1/4" />
-                <div className="h-4 bg-muted rounded w-1/3" />
-              </div>
+      <Card>
+        <CardContent className="p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-20 w-20 rounded-full bg-muted" />
+            <div className="space-y-2">
+              <div className="h-4 bg-muted rounded w-1/4" />
+              <div className="h-4 bg-muted rounded w-1/3" />
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -162,19 +102,6 @@ export function UserProfile({ userId }: UserProfileProps) {
         </CardContent>
       </Card>
     )
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    updateProfile.mutate({
-      name: editForm.name,
-      bio: editForm.bio,
-      favorite_coffee_styles: editForm.favoriteCoffeeStyles
-        .split(",")
-        .map(style => style.trim())
-        .filter(Boolean)
-    })
   }
 
   return (
@@ -227,22 +154,22 @@ export function UserProfile({ userId }: UserProfileProps) {
                       placeholder="Light Roast, Pour Over, etc. (comma-separated)"
                     />
                   </div>
-                  <Button type="submit" disabled={updateProfile.isPending}>
-                    {updateProfile.isPending ? "Saving..." : "Save Changes"}
+                  <Button type="submit">
+                    Save Changes
                   </Button>
                 </form>
               ) : (
                 <>
                   <p className="mt-2">{userData.bio || "No bio yet"}</p>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {userData.favorite_coffee_styles?.map((style) => (
+                    {userData.favorite_coffee_styles?.map((style: string) => (
                       <Badge key={style} variant="secondary">{style}</Badge>
                     ))}
                   </div>
                   <div className="mt-4 flex items-center gap-6 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Coffee className="h-4 w-4" />
-                      <span>Level {userData.level}</span>
+                      <span>Level {userData.user_stats?.level || 1}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
@@ -256,8 +183,31 @@ export function UserProfile({ userId }: UserProfileProps) {
         </CardHeader>
       </Card>
 
-      <ProfileStats stats={userData.stats} />
-      <ProfileBadges badges={userData.badges} />
+      <Card>
+        <CardHeader>
+          <h2 className="text-xl font-bold">Stats</h2>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <div className="text-2xl font-bold">{userData.user_stats?.total_reviews || 0}</div>
+              <div className="text-sm text-muted-foreground">Reviews</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{userData.user_stats?.beans_tried || 0}</div>
+              <div className="text-sm text-muted-foreground">Beans Tried</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{userData.user_stats?.roasters_visited || 0}</div>
+              <div className="text-sm text-muted-foreground">Roasters Visited</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{userData.user_stats?.unique_origins || 0}</div>
+              <div className="text-sm text-muted-foreground">Origins Explored</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

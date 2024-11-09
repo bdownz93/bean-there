@@ -19,7 +19,11 @@ export async function getFeaturedBeans() {
     .from('beans')
     .select(`
       *,
-      roaster:roasters(name)
+      roaster:roaster_id (
+        id,
+        name,
+        slug
+      )
     `)
     .order('rating', { ascending: false })
     .limit(3)
@@ -31,12 +35,16 @@ export async function getFeaturedBeans() {
   return data || []
 }
 
-export async function getBeans() {
+export async function getAllBeans() {
   const { data, error } = await supabase
     .from('beans')
     .select(`
       *,
-      roaster:roasters(name)
+      roaster:roaster_id (
+        id,
+        name,
+        slug
+      )
     `)
     .order('created_at', { ascending: false })
 
@@ -52,7 +60,31 @@ export async function getBeanById(id: string) {
     .from('beans')
     .select(`
       *,
-      roaster:roasters(*)
+      roaster:roaster_id (
+        id,
+        name,
+        slug,
+        location,
+        description,
+        logo_url,
+        rating,
+        coordinates,
+        specialties
+      ),
+      reviews (
+        id,
+        rating,
+        content,
+        brew_method,
+        flavor_notes,
+        created_at,
+        user:user_id (
+          id,
+          name,
+          username,
+          avatar_url
+        )
+      )
     `)
     .eq('id', id)
     .single()
@@ -93,7 +125,7 @@ export async function getRoasterBySlug(slug: string) {
     .from('roasters')
     .select(`
       *,
-      beans(*)
+      beans (*)
     `)
     .eq('slug', slug)
     .single()
@@ -111,18 +143,19 @@ export async function getReviews() {
     .from('reviews')
     .select(`
       *,
-      users (
+      user:user_id (
         id,
         name,
         username,
         avatar_url
       ),
-      beans (
+      bean:bean_id (
         id,
         name,
-        roaster:roasters (
+        roaster:roaster_id (
           id,
-          name
+          name,
+          slug
         )
       )
     `)
@@ -134,4 +167,27 @@ export async function getReviews() {
     return []
   }
   return data || []
+}
+
+export async function createReview(review: {
+  bean_id: string
+  rating: number
+  content?: string
+  brew_method?: string
+  flavor_notes?: string[]
+}) {
+  const { data, error } = await supabase
+    .from('reviews')
+    .insert([{
+      ...review,
+      user_id: (await supabase.auth.getUser()).data.user?.id
+    }])
+    .select()
+
+  if (error) {
+    console.error('Error creating review:', error)
+    throw error
+  }
+
+  return data[0]
 }

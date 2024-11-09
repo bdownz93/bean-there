@@ -2,8 +2,14 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/use-toast"
+import { useAuth } from "@/components/auth/auth-provider"
+import { useQueryClient } from "@tanstack/react-query"
+import { supabase } from "@/lib/supabase"
 import {
   Dialog,
   DialogContent,
@@ -11,90 +17,101 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Coffee } from "lucide-react"
-import { BasicInfo } from "./coffee/basic-info"
-import { FlavorProfile } from "./coffee/flavor-profile"
-import { OriginProcess } from "./coffee/origin-process"
-import { BrewingInfo } from "./coffee/brewing-info"
+import type { Roaster } from "@/lib/types"
 
-export function AddBeanForm() {
+interface AddBeanFormProps {
+  roasters: Roaster[]
+}
+
+export function AddBeanForm({ roasters = [] }: AddBeanFormProps) {
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
   const router = useRouter()
-  const roasters = useStore((state) => state.roasters)
-  const addBean = useStore((state) => state.addBean)
   const [open, setOpen] = useState(false)
   const [selectedRoaster, setSelectedRoaster] = useState("")
-  const [selectedFlavors, setSelectedFlavors] = useState<string[]>([])
-  const [selectedCertifications, setSelectedCertifications] = useState<string[]>([])
-  const [selectedBrewMethods, setSelectedBrewMethods] = useState<string[]>([])
-  const [isLimitedEdition, setIsLimitedEdition] = useState(false)
-  const [isDecaf, setIsDecaf] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const formData = new FormData(e.currentTarget)
     
-    const bean = {
-      name: formData.get("name") as string,
-      origin: formData.get("origin") as string,
-      roastLevel: formData.get("roastLevel") as string,
-      process: formData.get("process") as string,
-      description: formData.get("description") as string,
-      price: parseFloat(formData.get("price") as string),
-      rating: 0,
-      tastingNotes: selectedFlavors,
-      altitude: formData.get("altitude") as string,
-      variety: formData.get("variety") as string,
-      harvest: formData.get("harvest") as string,
-      image: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&auto=format&fit=crop&q=60",
-      flavorProfile: [
-        { name: "Aroma", intensity: parseInt(formData.get("aromaIntensity") as string) },
-        { name: "Body", intensity: parseInt(formData.get("bodyIntensity") as string) },
-        { name: "Acidity", intensity: parseInt(formData.get("acidityIntensity") as string) },
-        { name: "Sweetness", intensity: parseInt(formData.get("sweetnessIntensity") as string) },
-        { name: "Aftertaste", intensity: parseInt(formData.get("aftertasteIntensity") as string) }
-      ],
-      roastDate: formData.get("roastDate") as string,
-      farm: formData.get("farm") as string,
-      certifications: selectedCertifications,
-      brewMethods: selectedBrewMethods,
-      grindSize: formData.get("grindSize") as string,
-      waterTemp: formData.get("waterTemp") as string,
-      brewTime: formData.get("brewTime") as string,
-      bagSizes: Array.from(formData.getAll("bagSizes")),
-      isLimitedEdition,
-      isDecaf,
-      caffeineContent: formData.get("caffeineContent") as string,
-      type: formData.get("type") as string
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add a bean",
+        variant: "destructive"
+      })
+      return
     }
 
-    addBean(selectedRoaster, bean)
-    setOpen(false)
-    router.refresh()
-  }
+    if (!selectedRoaster) {
+      toast({
+        title: "Error",
+        description: "Please select a roaster",
+        variant: "destructive"
+      })
+      return
+    }
 
-  const toggleFlavor = (flavor: string) => {
-    setSelectedFlavors(prev =>
-      prev.includes(flavor)
-        ? prev.filter(f => f !== flavor)
-        : [...prev, flavor]
-    )
-  }
+    setIsLoading(true)
 
-  const toggleCertification = (cert: string) => {
-    setSelectedCertifications(prev =>
-      prev.includes(cert)
-        ? prev.filter(c => c !== cert)
-        : [...prev, cert]
-    )
-  }
+    try {
+      const formData = new FormData(e.currentTarget)
+      const name = formData.get("name") as string
+      const slug = name.toLowerCase().replace(/\s+/g, "-")
+      
+      const beanData = {
+        created_by: user.id,
+        roaster_id: selectedRoaster,
+        name,
+        slug,
+        origin: formData.get("origin") as string || null,
+        process: formData.get("process") as string || null,
+        roast_level: formData.get("roastLevel") as string || null,
+        description: formData.get("description") as string || null,
+        price: formData.get("price") ? parseFloat(formData.get("price") as string) : null,
+        rating: 0,
+        image_url: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&auto=format&fit=crop&q=60",
+        tasting_notes: formData.get("tastingNotes") ? 
+          (formData.get("tastingNotes") as string).split(",").map(note => note.trim()) : 
+          [],
+        altitude: formData.get("altitude") as string || null,
+        variety: formData.get("variety") as string || null,
+        harvest: formData.get("harvest") as string || null
+      }
 
-  const toggleBrewMethod = (method: string) => {
-    setSelectedBrewMethods(prev =>
-      prev.includes(method)
-        ? prev.filter(m => m !== method)
-        : [...prev, method]
-    )
+      const { error } = await supabase
+        .from('beans')
+        .insert([beanData])
+
+      if (error) throw error
+
+      await queryClient.invalidateQueries({ queryKey: ['beans'] })
+
+      setOpen(false)
+      toast({
+        title: "Success",
+        description: "Bean added successfully"
+      })
+      router.refresh()
+    } catch (error) {
+      console.error('Error adding bean:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add bean. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -105,56 +122,88 @@ export function AddBeanForm() {
           Add Coffee Bean
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Coffee Bean</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="flavor">Flavor Profile</TabsTrigger>
-              <TabsTrigger value="origin">Origin & Process</TabsTrigger>
-              <TabsTrigger value="brewing">Brewing Info</TabsTrigger>
-            </TabsList>
+        <form onSubmit={handleSubmit} className="space-y-4 pr-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name *</Label>
+              <Input id="name" name="name" required />
+            </div>
 
-            <TabsContent value="basic">
-              <BasicInfo
-                roasters={roasters}
-                selectedRoaster={selectedRoaster}
-                setSelectedRoaster={setSelectedRoaster}
-                selectedCertifications={selectedCertifications}
-                toggleCertification={toggleCertification}
-                isLimitedEdition={isLimitedEdition}
-                setIsLimitedEdition={setIsLimitedEdition}
-                isDecaf={isDecaf}
-                setIsDecaf={setIsDecaf}
-              />
-            </TabsContent>
-
-            <TabsContent value="flavor">
-              <FlavorProfile
-                selectedFlavors={selectedFlavors}
-                toggleFlavor={toggleFlavor}
-                isDecaf={isDecaf}
-              />
-            </TabsContent>
-
-            <TabsContent value="origin">
-              <OriginProcess />
-            </TabsContent>
-
-            <TabsContent value="brewing">
-              <BrewingInfo
-                selectedBrewMethods={selectedBrewMethods}
-                toggleBrewMethod={toggleBrewMethod}
-              />
-            </TabsContent>
-          </Tabs>
-
-          <div className="flex justify-end">
-            <Button type="submit">Add Coffee Bean</Button>
+            <div className="space-y-2">
+              <Label>Roaster *</Label>
+              <Select value={selectedRoaster} onValueChange={setSelectedRoaster} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a roaster" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roasters.map((roaster) => (
+                    <SelectItem key={roaster.id} value={roaster.id}>
+                      {roaster.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="origin">Origin</Label>
+              <Input id="origin" name="origin" />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="process">Process</Label>
+              <Input id="process" name="process" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="roastLevel">Roast Level</Label>
+              <Input id="roastLevel" name="roastLevel" />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="price">Price</Label>
+              <Input type="number" step="0.01" id="price" name="price" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea id="description" name="description" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tastingNotes">Tasting Notes (comma-separated)</Label>
+            <Input id="tastingNotes" name="tastingNotes" placeholder="Chocolate, Caramel, Nuts" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="altitude">Altitude</Label>
+              <Input id="altitude" name="altitude" />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="variety">Variety</Label>
+              <Input id="variety" name="variety" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="harvest">Harvest</Label>
+            <Input id="harvest" name="harvest" />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Adding..." : "Add Bean"}
+          </Button>
         </form>
       </DialogContent>
     </Dialog>

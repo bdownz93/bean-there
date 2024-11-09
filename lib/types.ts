@@ -36,26 +36,26 @@ export interface Roaster {
     lng: number
   }
   specialties: string[]
-  beans: Bean[]
+  beans?: Bean[]
 }
 
 export interface Bean {
   id: string
   name: string
-  roaster: string
-  roasterId: string
-  origin: string
-  roastLevel: string
-  process: string
-  description: string
-  price: number
-  rating: number
-  tastingNotes: string[]
-  altitude: string
-  variety: string
-  harvest: string
-  image: string
-  flavorProfile: FlavorProfile[]
+  roaster: string | Roaster
+  roaster_id: string
+  origin: string | null
+  roast_level: string | null
+  process: string | null
+  description: string | null
+  price: number | null
+  rating: number | null
+  tasting_notes: string[] | null
+  altitude: string | null
+  variety: string | null
+  harvest: string | null
+  image_url: string | null
+  flavor_profile: FlavorProfile[] | null
 }
 
 export interface FlavorProfile {
@@ -65,17 +65,25 @@ export interface FlavorProfile {
 
 export interface Review {
   id: string
-  userId: string
-  userName: string
-  userImage: string
-  beanId: string
-  bean: string
-  roaster: string
+  user_id: string
+  bean_id: string
   rating: number
-  content: string
-  date: string
-  brewMethod?: string
-  flavorNotes?: string[]
+  content: string | null
+  brew_method: string | null
+  flavor_notes: string[] | null
+  created_at: string
+  updated_at: string
+  user?: {
+    id: string
+    name: string
+    username: string
+    avatar_url: string
+  }
+  bean?: {
+    id: string
+    name: string
+    roaster: Roaster
+  }
 }
 
 export interface Location {

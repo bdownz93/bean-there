@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth/auth-provider"
-import { UserProfile } from "@/components/profile/user-profile"
+import { ProfileTabs } from "@/components/profile/profile-tabs"
 import { Card, CardContent } from "@/components/ui/card"
 
 export default function ProfilePage() {
@@ -40,7 +40,7 @@ export default function ProfilePage() {
 
   return (
     <div className="container max-w-4xl py-8 px-4">
-      <UserProfile userId={user.id} />
+      <ProfileTabs userId={user.id} />
     </div>
   )
 }

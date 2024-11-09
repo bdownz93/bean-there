@@ -1,10 +1,15 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { LocationSearch } from "@/components/location/location-search"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -12,13 +17,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Coffee } from "lucide-react"
-import { supabase } from "@/lib/supabase"
+import { Coffee, Store } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { useAuth } from "@/components/auth/auth-provider"
+import { supabase } from "@/lib/supabase"
 import { useQueryClient } from "@tanstack/react-query"
-import type { Roaster } from "@/lib/types"
+import { LocationSearch } from "@/components/location/location-search"
+
+const SPECIALTIES = [
+  "Single Origin", "Espresso Blends", "Light Roasts", "Dark Roasts",
+  "Direct Trade", "Organic", "Fair Trade", "Specialty Coffee",
+  "Cold Brew", "Pour Over", "Traditional", "Experimental"
+]
+
+const roasterSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  phone: z.string().optional(),
+  email: z.string().email("Must be a valid email").optional().or(z.literal("")),
+})
+
+type RoasterFormValues = z.infer<typeof roasterSchema>
 
 interface Location {
   name: string
@@ -27,25 +46,26 @@ interface Location {
 }
 
 export function AddRoasterForm() {
-  const { user } = useAuth()
+  const router = useRouter()
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([])
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    
-    if (!user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to add a roaster",
-        variant: "destructive"
-      })
-      return
-    }
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<RoasterFormValues>({
+    resolver: zodResolver(roasterSchema)
+  })
 
+  const toggleSpecialty = (specialty: string) => {
+    setSelectedSpecialties(prev =>
+      prev.includes(specialty)
+        ? prev.filter(s => s !== specialty)
+        : [...prev, specialty]
+    )
+  }
+
+  const onSubmit = async (data: RoasterFormValues) => {
     if (!selectedLocation) {
       toast({
         title: "Error",
@@ -55,44 +75,41 @@ export function AddRoasterForm() {
       return
     }
 
-    setIsLoading(true)
-
     try {
-      const formData = new FormData(e.currentTarget)
-      const name = formData.get("name") as string
-      const slug = name.toLowerCase().replace(/\s+/g, "-")
-      
-      const roasterData = {
-        created_by: user.id,
-        name,
-        slug,
-        location: selectedLocation.name,
-        description: formData.get("description") as string,
-        rating: 0,
-        specialties: (formData.get("specialties") as string).split(",").map(s => s.trim()),
-        coordinates: {
-          lat: selectedLocation.lat,
-          lng: selectedLocation.lng
-        },
-        logo_url: "https://images.unsplash.com/photo-1559122143-f4e9bf761285?w=800&auto=format&fit=crop&q=60"
-      }
-
-      const { data, error } = await supabase
+      const { data: roaster, error } = await supabase
         .from('roasters')
-        .insert([roasterData])
+        .insert([
+          {
+            ...data,
+            location: selectedLocation.name,
+            coordinates: {
+              lat: selectedLocation.lat,
+              lng: selectedLocation.lng
+            },
+            specialties: selectedSpecialties,
+            created_by: (await supabase.auth.getUser()).data.user?.id,
+            logo_url: "https://images.unsplash.com/photo-1559122143-f4e9bf761285?w=800&auto=format&fit=crop&q=60",
+            rating: 0
+          }
+        ])
         .select()
         .single()
 
       if (error) throw error
 
-      // Invalidate and refetch roasters query
       await queryClient.invalidateQueries({ queryKey: ['roasters'] })
-
-      setOpen(false)
+      
       toast({
         title: "Success",
         description: "Roaster added successfully"
       })
+
+      reset()
+      setSelectedLocation(null)
+      setSelectedSpecialties([])
+      setOpen(false)
+
+      router.push(`/roasters/${roaster.slug}`)
     } catch (error) {
       console.error('Error adding roaster:', error)
       toast({
@@ -100,8 +117,6 @@ export function AddRoasterForm() {
         description: "Failed to add roaster. Please try again.",
         variant: "destructive"
       })
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -109,46 +124,81 @@ export function AddRoasterForm() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Coffee className="mr-2 h-4 w-4" />
+          <Store className="mr-2 h-4 w-4" />
           Add Roaster
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add New Roaster</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" name="name" required />
+            <Label>Name</Label>
+            <Input {...register("name")} />
+            {errors.name && (
+              <p className="text-sm text-destructive">{errors.name.message}</p>
+            )}
           </div>
+
           <div className="space-y-2">
             <Label>Location</Label>
-            <LocationSearch 
-              onLocationSelect={(location) => setSelectedLocation(location)} 
-            />
+            <LocationSearch onLocationSelect={setSelectedLocation} />
             {selectedLocation && (
               <p className="text-sm text-muted-foreground mt-1">
                 Selected: {selectedLocation.name}
               </p>
             )}
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" name="description" required />
+            <Label>Description</Label>
+            <Textarea {...register("description")} />
+            {errors.description && (
+              <p className="text-sm text-destructive">{errors.description.message}</p>
+            )}
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="specialties">Specialties (comma-separated)</Label>
-            <Input 
-              id="specialties" 
-              name="specialties" 
-              placeholder="Single Origin, Espresso, Cold Brew" 
-              required 
-            />
+            <Label>Specialties</Label>
+            <div className="flex flex-wrap gap-2">
+              {SPECIALTIES.map((specialty) => (
+                <Badge
+                  key={specialty}
+                  variant={selectedSpecialties.includes(specialty) ? "default" : "outline"}
+                  className="cursor-pointer"
+                  onClick={() => toggleSpecialty(specialty)}
+                >
+                  {specialty}
+                </Badge>
+              ))}
+            </div>
           </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Adding..." : "Add Roaster"}
-          </Button>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Website</Label>
+              <Input {...register("website")} placeholder="https://" />
+              {errors.website && (
+                <p className="text-sm text-destructive">{errors.website.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input {...register("phone")} placeholder="+1 (555) 555-5555" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Email</Label>
+            <Input {...register("email")} type="email" />
+            {errors.email && (
+              <p className="text-sm text-destructive">{errors.email.message}</p>
+            )}
+          </div>
+
+          <Button type="submit">Add Roaster</Button>
         </form>
       </DialogContent>
     </Dialog>

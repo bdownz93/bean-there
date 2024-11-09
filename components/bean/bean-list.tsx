@@ -1,25 +1,24 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Star } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { Bean } from "@/lib/types"
+import type { Bean } from "@/lib/types"
 
 interface BeanListProps {
-  beans: (Bean & { tried?: boolean })[]
+  beans: Bean[]
 }
 
 export function BeanList({ beans }: BeanListProps) {
   if (!beans || beans.length === 0) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>No beans found</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">No coffee beans available at the moment.</p>
+        <CardContent className="p-6">
+          <p className="text-center text-muted-foreground">
+            No coffee beans available at the moment.
+          </p>
         </CardContent>
       </Card>
     )
@@ -31,10 +30,10 @@ export function BeanList({ beans }: BeanListProps) {
         <Link key={bean.id} href={`/beans/${bean.id}`}>
           <Card className="h-full hover:bg-accent hover:text-accent-foreground transition-colors">
             <CardHeader>
-              {bean.image && (
+              {bean.image_url && (
                 <div className="relative w-full h-48 mb-4 rounded-lg overflow-hidden">
                   <Image
-                    src={bean.image}
+                    src={bean.image_url}
                     alt={bean.name}
                     fill
                     className="object-cover"
@@ -43,19 +42,12 @@ export function BeanList({ beans }: BeanListProps) {
               )}
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-lg">{bean.name}</h3>
-                    {bean.tried && (
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">
-                        Tried
-                      </Badge>
-                    )}
-                  </div>
+                  <h3 className="font-semibold text-lg">{bean.name}</h3>
                   <div className="text-sm text-muted-foreground">
-                    by {bean.roaster}
+                    by {typeof bean.roaster === 'string' ? bean.roaster : bean.roaster?.name}
                   </div>
                 </div>
-                {bean.rating && (
+                {bean.rating !== null && (
                   <div className="flex items-center">
                     <Star className="h-4 w-4 fill-current text-yellow-400" />
                     <span className="ml-1 text-sm font-medium">
@@ -70,16 +62,16 @@ export function BeanList({ beans }: BeanListProps) {
                 <div className="flex justify-between items-center">
                   <div className="space-y-1">
                     <div className="text-sm text-muted-foreground">Origin</div>
-                    <div className="font-medium">{bean.origin}</div>
+                    <div className="font-medium">{bean.origin || 'Unknown'}</div>
                   </div>
                   <div className="space-y-1 text-right">
                     <div className="text-sm text-muted-foreground">Roast Level</div>
-                    <div className="font-medium">{bean.roastLevel}</div>
+                    <div className="font-medium">{bean.roast_level || 'Not specified'}</div>
                   </div>
                 </div>
-                {bean.tastingNotes && bean.tastingNotes.length > 0 && (
+                {bean.tasting_notes && bean.tasting_notes.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {bean.tastingNotes.map((note) => (
+                    {bean.tasting_notes.map((note) => (
                       <Badge key={note} variant="secondary">
                         {note}
                       </Badge>

@@ -30,6 +30,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         setUser(session?.user ?? null)
+
+        if (session?.user) {
+          // Ensure user profile exists
+          const { data: existingProfile } = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', session.user.id)
+            .single()
+
+          if (!existingProfile) {
+            // Create profile if it doesn't exist
+            await supabase.from('users').insert([
+              {
+                id: session.user.id,
+                username: session.user.email?.split('@')[0],
+                name: session.user.user_metadata.name || session.user.email?.split('@')[0],
+                avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }
+            ])
+
+            // Create initial user stats
+            await supabase.from('user_stats').insert([
+              {
+                user_id: session.user.id,
+                beans_tried: 0,
+                roasters_visited: 0,
+                total_reviews: 0,
+                unique_origins: 0,
+                roasters_created: 0,
+                experience_points: 0,
+                level: 1,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }
+            ])
+          }
+        }
       } catch (error) {
         console.error("Auth initialization error:", error)
       } finally {
@@ -39,11 +78,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
       
       if (event === 'SIGNED_IN') {
-        router.push('/')
+        try {
+          if (session?.user) {
+            // Ensure user profile exists
+            const { data: existingProfile } = await supabase
+              .from('users')
+              .select('id')
+              .eq('id', session.user.id)
+              .single()
+
+            if (!existingProfile) {
+              // Create profile if it doesn't exist
+              await supabase.from('users').insert([
+                {
+                  id: session.user.id,
+                  username: session.user.email?.split('@')[0],
+                  name: session.user.user_metadata.name || session.user.email?.split('@')[0],
+                  avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }
+              ])
+
+              // Create initial user stats
+              await supabase.from('user_stats').insert([
+                {
+                  user_id: session.user.id,
+                  beans_tried: 0,
+                  roasters_visited: 0,
+                  total_reviews: 0,
+                  unique_origins: 0,
+                  roasters_created: 0,
+                  experience_points: 0,
+                  level: 1,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }
+              ])
+            }
+          }
+          router.push('/')
+        } catch (error) {
+          console.error("Error creating user profile:", error)
+        }
       }
       
       if (event === 'SIGNED_OUT') {
@@ -152,8 +233,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
+      await supabase.auth.signOut()
+      setUser(null)
       router.push("/login")
     } catch (error) {
       toast({
@@ -161,7 +242,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: getAuthErrorMessage(error),
         variant: "destructive"
       })
-      throw error
     }
   }
 

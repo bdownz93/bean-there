@@ -13,6 +13,12 @@ export interface Review {
   content: string
   created_at: string
   updated_at: string
+  user?: {
+    id: string
+    name: string
+    username: string
+    avatar_url: string
+  }
 }
 
 export function useReviews(beanId: string) {
@@ -27,7 +33,8 @@ export function useReviews(beanId: string) {
         .from("reviews")
         .select(`
           *,
-          users (
+          user:user_id (
+            id,
             name,
             username,
             avatar_url

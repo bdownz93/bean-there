@@ -30,7 +30,7 @@ export function BeanProfile({ bean }: BeanProfileProps) {
               <div>
                 <CardTitle className="text-2xl">{bean.name}</CardTitle>
                 <div className="flex items-center mt-2 text-muted-foreground">
-                  <span>{bean.roaster}</span>
+                  <span>{typeof bean.roaster === 'string' ? bean.roaster : bean.roaster?.name}</span>
                 </div>
               </div>
               <div className="flex items-center">
@@ -49,7 +49,7 @@ export function BeanProfile({ bean }: BeanProfileProps) {
           <div>
             <h4 className="font-semibold mb-2">Tasting Notes</h4>
             <div className="flex flex-wrap gap-2">
-              {bean.tastingNotes.map((note) => (
+              {bean.tastingNotes?.map((note) => (
                 <Badge key={note} variant="secondary">
                   {note}
                 </Badge>
