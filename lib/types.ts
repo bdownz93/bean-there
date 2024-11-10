@@ -31,6 +31,8 @@ export interface Roaster {
   description: string
   logo_url: string
   rating: number
+  website?: string
+  phone?: string
   coordinates: {
     lat: number
     lng: number

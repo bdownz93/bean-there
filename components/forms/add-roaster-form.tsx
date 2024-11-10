@@ -17,7 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Coffee, Store } from "lucide-react"
+import { Store } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase"
 import { useQueryClient } from "@tanstack/react-query"
@@ -33,8 +33,7 @@ const roasterSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
   website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-  phone: z.string().optional(),
-  email: z.string().email("Must be a valid email").optional().or(z.literal("")),
+  phone: z.string().optional().or(z.literal(""))
 })
 
 type RoasterFormValues = z.infer<typeof roasterSchema>
@@ -52,6 +51,7 @@ export function AddRoasterForm() {
   const [open, setOpen] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm<RoasterFormValues>({
     resolver: zodResolver(roasterSchema)
@@ -75,12 +75,17 @@ export function AddRoasterForm() {
       return
     }
 
+    setIsSubmitting(true)
+
     try {
       const { data: roaster, error } = await supabase
         .from('roasters')
         .insert([
           {
-            ...data,
+            name: data.name,
+            description: data.description,
+            website: data.website || null,
+            phone: data.phone || null,
             location: selectedLocation.name,
             coordinates: {
               lat: selectedLocation.lat,
@@ -117,6 +122,8 @@ export function AddRoasterForm() {
         description: "Failed to add roaster. Please try again.",
         variant: "destructive"
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -134,8 +141,8 @@ export function AddRoasterForm() {
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-2">
-            <Label>Name</Label>
-            <Input {...register("name")} />
+            <Label htmlFor="name">Name</Label>
+            <Input id="name" {...register("name")} />
             {errors.name && (
               <p className="text-sm text-destructive">{errors.name.message}</p>
             )}
@@ -152,8 +159,8 @@ export function AddRoasterForm() {
           </div>
 
           <div className="space-y-2">
-            <Label>Description</Label>
-            <Textarea {...register("description")} />
+            <Label htmlFor="description">Description</Label>
+            <Textarea id="description" {...register("description")} />
             {errors.description && (
               <p className="text-sm text-destructive">{errors.description.message}</p>
             )}
@@ -177,28 +184,22 @@ export function AddRoasterForm() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Website</Label>
-              <Input {...register("website")} placeholder="https://" />
+              <Label htmlFor="website">Website</Label>
+              <Input id="website" {...register("website")} placeholder="https://" />
               {errors.website && (
                 <p className="text-sm text-destructive">{errors.website.message}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label>Phone</Label>
-              <Input {...register("phone")} placeholder="+1 (555) 555-5555" />
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" {...register("phone")} placeholder="+1 (555) 555-5555" />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Email</Label>
-            <Input {...register("email")} type="email" />
-            {errors.email && (
-              <p className="text-sm text-destructive">{errors.email.message}</p>
-            )}
-          </div>
-
-          <Button type="submit">Add Roaster</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Adding..." : "Add Roaster"}
+          </Button>
         </form>
       </DialogContent>
     </Dialog>
