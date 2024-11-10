@@ -44,7 +44,7 @@ export function BeanList({ beans }: BeanListProps) {
                 <div className="space-y-1">
                   <h3 className="font-semibold text-lg">{bean.name}</h3>
                   <div className="text-sm text-muted-foreground">
-                    by {bean.roaster?.name}
+                    by {typeof bean.roaster === 'string' ? bean.roaster : bean.roaster?.name}
                   </div>
                 </div>
                 {bean.rating !== null && (
