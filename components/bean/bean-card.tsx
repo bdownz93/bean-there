@@ -33,7 +33,7 @@ export function BeanCard({ bean }: BeanCardProps) {
               <div className="flex items-center shrink-0">
                 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                 <span className="ml-1 text-sm font-medium">
-                  {bean.rating.toFixed(1)}
+                  {bean.rating?.toFixed(1)}
                 </span>
               </div>
             </div>
@@ -55,15 +55,17 @@ export function BeanCard({ bean }: BeanCardProps) {
               </div>
             </div>
             <div className="flex flex-wrap gap-1">
-              {bean.tastingNotes.map((note) => (
+              {bean.tastingNotes?.map((note) => (
                 <Badge key={note} variant="secondary">
                   {note}
                 </Badge>
               ))}
             </div>
-            <div className="text-lg font-semibold">
-              ${bean.price.toFixed(2)}
-            </div>
+            {bean.price && (
+              <div className="text-lg font-semibold">
+                ${bean.price.toFixed(2)}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

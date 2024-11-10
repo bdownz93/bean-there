@@ -2,10 +2,16 @@ import { RoastersClient } from "@/components/roaster/roasters-client"
 import { AddRoasterForm } from "@/components/forms/add-roaster-form"
 import { getAllRoasters } from "@/lib/supabase"
 import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default async function RoastersPage() {
   try {
     const roasters = await getAllRoasters()
+
+    if (!roasters) {
+      throw new Error('Failed to load roasters')
+    }
+
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">

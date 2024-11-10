@@ -1,12 +1,15 @@
 "use client"
 
 import { useState } from "react"
+import { useAuth } from "@/components/auth/auth-provider"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Star } from "lucide-react"
-import { useAuth } from "@/components/auth/auth-provider"
-import { useReviews } from "@/lib/hooks/useReviews"
+import { useToast } from "@/components/ui/use-toast"
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query"
+import { supabase, uploadReviewPhoto } from "@/lib/supabase"
+import { Star, Plus } from "lucide-react"
+import { ReviewForm } from "@/components/reviews/review-form"
+import { ReviewList } from "@/components/reviews/review-list"
 import type { Bean } from "@/lib/types"
 
 interface BeanReviewsProps {
@@ -15,107 +18,160 @@ interface BeanReviewsProps {
 
 export function BeanReviews({ bean }: BeanReviewsProps) {
   const { user } = useAuth()
-  const [newReview, setNewReview] = useState("")
-  const [rating, setRating] = useState(5)
-  const { reviews, isLoading, addReview } = useReviews(bean.id)
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+  const [showReviewForm, setShowReviewForm] = useState(false)
 
-  const handleSubmitReview = async () => {
-    if (!user || !newReview.trim()) return
+  const { data: reviews = [], isLoading } = useQuery({
+    queryKey: ['reviews', bean.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select(`
+          id,
+          rating,
+          content,
+          brew_method,
+          grind_size,
+          flavor_notes,
+          photo_url,
+          created_at,
+          aroma,
+          body,
+          acidity,
+          sweetness,
+          aftertaste,
+          user_id
+        `)
+        .eq('bean_id', bean.id)
+        .order('created_at', { ascending: false })
 
-    try {
-      await addReview.mutateAsync({
-        rating,
-        content: newReview
-      })
-      
-      setNewReview("")
-      setRating(5)
-    } catch (error) {
-      console.error("Error submitting review:", error)
+      if (error) throw error
+
+      // Fetch user details for each review
+      const reviewsWithUsers = await Promise.all(
+        data.map(async (review) => {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('name, username, avatar_url')
+            .eq('id', review.user_id)
+            .single()
+
+          return {
+            ...review,
+            user: {
+              name: userData?.name || 'Anonymous',
+              username: userData?.username,
+              avatar_url: userData?.avatar_url
+            }
+          }
+        })
+      )
+
+      return reviewsWithUsers
     }
-  }
+  })
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded"></div>
-              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
+  const addReview = useMutation({
+    mutationFn: async (data: any) => {
+      if (!user) throw new Error('Must be logged in to review')
+
+      let photoUrl = null
+      if (data.photo) {
+        try {
+          photoUrl = await uploadReviewPhoto(data.photo, user.id)
+        } catch (error) {
+          console.error('Error uploading photo:', error)
+          throw new Error('Failed to upload photo')
+        }
+      }
+
+      const { error } = await supabase
+        .from('reviews')
+        .insert([{
+          user_id: user.id,
+          bean_id: bean.id,
+          rating: data.rating,
+          content: data.content,
+          brew_method: data.brewMethod,
+          grind_size: data.grindSize,
+          flavor_notes: data.selectedFlavors,
+          photo_url: photoUrl,
+          aroma: data.aroma,
+          body: data.body,
+          acidity: data.acidity,
+          sweetness: data.sweetness,
+          aftertaste: data.aftertaste
+        }])
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews', bean.id] })
+      setShowReviewForm(false)
+      toast({
+        title: "Review submitted",
+        description: "Your review has been added successfully."
+      })
+    },
+    onError: (error) => {
+      console.error('Review submission error:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to submit review",
+        variant: "destructive"
+      })
+    }
+  })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Reviews</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          {user && (
-            <div className="space-y-4">
-              <Textarea
-                placeholder="Write your review..."
-                value={newReview}
-                onChange={(e) => setNewReview(e.target.value)}
-                className="min-h-[100px]"
-              />
-              <div className="flex items-center gap-4">
-                <div className="flex items-center">
-                  {[1, 2, 3, 4, 5].map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setRating(value)}
-                      className="text-yellow-400"
-                    >
-                      <Star
-                        className={`h-5 w-5 ${
-                          value <= rating ? "fill-current" : "fill-none"
-                        }`}
-                      />
-                    </button>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div>Reviews ({reviews.length})</div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="flex">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-5 w-5 ${
+                        star <= (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length || 0)
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-gray-300"
+                      }`}
+                    />
                   ))}
                 </div>
-                <Button 
-                  onClick={handleSubmitReview} 
-                  disabled={addReview.isPending || !newReview.trim()}
-                >
-                  {addReview.isPending ? "Submitting..." : "Submit Review"}
-                </Button>
+                <span className="font-normal text-muted-foreground">
+                  {(reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length || 0).toFixed(1)}
+                </span>
               </div>
+              {user && !showReviewForm && (
+                <Button 
+                  onClick={() => setShowReviewForm(true)}
+                  className="ml-4"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Write a Review
+                </Button>
+              )}
             </div>
-          )}
-          
-          <div className="space-y-4">
-            {reviews.length === 0 ? (
-              <p className="text-center text-muted-foreground">No reviews yet. Be the first to review!</p>
-            ) : (
-              reviews.map((review) => (
-                <div key={review.id} className="border-b pb-4 last:border-0">
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold">{review.users?.name || "Anonymous"}</div>
-                    <div className="flex items-center">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="ml-1 text-sm">{review.rating}</span>
-                    </div>
-                  </div>
-                  <p className="mt-2">{review.content}</p>
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    {new Date(review.created_at).toLocaleDateString()}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+          </CardTitle>
+        </CardHeader>
+        {(showReviewForm && user) && (
+          <CardContent>
+            <ReviewForm 
+              onSubmit={(data) => addReview.mutate(data)}
+              isSubmitting={addReview.isPending}
+              onCancel={() => setShowReviewForm(false)}
+            />
+          </CardContent>
+        )}
+      </Card>
+
+      <ReviewList reviews={reviews} />
+    </div>
   )
 }

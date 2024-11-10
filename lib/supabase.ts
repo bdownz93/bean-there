@@ -1,17 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// Default to empty strings to prevent URL constructor errors
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Missing Supabase environment variables')
-}
-
-export const supabase = createClient<Database>(
-  supabaseUrl || '',
-  supabaseAnonKey || ''
-)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Bean-related functions
 export async function getFeaturedBeans() {
@@ -65,25 +59,7 @@ export async function getBeanById(id: string) {
         name,
         slug,
         location,
-        description,
-        logo_url,
-        rating,
-        coordinates,
-        specialties
-      ),
-      reviews (
-        id,
-        rating,
-        content,
-        brew_method,
-        flavor_notes,
-        created_at,
-        user:user_id (
-          id,
-          name,
-          username,
-          avatar_url
-        )
+        description
       )
     `)
     .eq('id', id)
@@ -120,25 +96,8 @@ export async function getAllRoasters() {
   return data || []
 }
 
-export async function getRoasterBySlug(slug: string) {
-  const { data, error } = await supabase
-    .from('roasters')
-    .select(`
-      *,
-      beans (*)
-    `)
-    .eq('slug', slug)
-    .single()
-
-  if (error) {
-    console.error('Error fetching roaster:', error)
-    return null
-  }
-  return data
-}
-
 // Review-related functions
-export async function getReviews() {
+export async function getReviews(beanId: string) {
   const { data, error } = await supabase
     .from('reviews')
     .select(`
@@ -148,19 +107,10 @@ export async function getReviews() {
         name,
         username,
         avatar_url
-      ),
-      bean:bean_id (
-        id,
-        name,
-        roaster:roaster_id (
-          id,
-          name,
-          slug
-        )
       )
     `)
+    .eq('bean_id', beanId)
     .order('created_at', { ascending: false })
-    .limit(10)
 
   if (error) {
     console.error('Error fetching reviews:', error)
@@ -172,9 +122,15 @@ export async function getReviews() {
 export async function createReview(review: {
   bean_id: string
   rating: number
-  content?: string
+  content: string
   brew_method?: string
   flavor_notes?: string[]
+  photo_url?: string
+  aroma?: number
+  body?: number
+  acidity?: number
+  sweetness?: number
+  aftertaste?: number
 }) {
   const { data, error } = await supabase
     .from('reviews')
@@ -190,4 +146,30 @@ export async function createReview(review: {
   }
 
   return data[0]
+}
+
+// Helper function for uploading review photos
+export async function uploadReviewPhoto(file: File, userId: string): Promise<string> {
+  try {
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${userId}/${Math.random()}.${fileExt}`
+
+    const { error: uploadError, data } = await supabase.storage
+      .from('review-photos')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
+
+    if (uploadError) throw uploadError
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('review-photos')
+      .getPublicUrl(fileName)
+
+    return publicUrl
+  } catch (error) {
+    console.error('Error uploading review photo:', error)
+    throw error
+  }
 }

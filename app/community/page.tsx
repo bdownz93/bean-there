@@ -7,19 +7,37 @@ import { PopularUsers } from "@/components/user/popular-users"
 import { TrendingBeans } from "@/components/bean/trending-beans"
 import { useQuery } from "@tanstack/react-query"
 import { getAllBeans, getReviews } from "@/lib/supabase"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function CommunityPage() {
-  const { data: reviews = [], isError: isReviewsError } = useQuery({
+  const { data: reviews = [], isLoading: isReviewsLoading, isError: isReviewsError } = useQuery({
     queryKey: ['reviews'],
     queryFn: () => getReviews(),
-    retry: 1
+    retry: 1,
+    staleTime: 1000 * 60 // 1 minute
   })
 
-  const { data: beans = [], isError: isBeansError } = useQuery({
+  const { data: beans = [], isLoading: isBeansLoading, isError: isBeansError } = useQuery({
     queryKey: ['beans'],
     queryFn: () => getAllBeans(),
-    retry: 1
+    retry: 1,
+    staleTime: 1000 * 60 // 1 minute
   })
+
+  if (isReviewsLoading || isBeansLoading) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="grid gap-8 md:grid-cols-[1fr,300px]">
+          <div className="space-y-8">
+            <Skeleton className="h-[400px] w-full" />
+          </div>
+          <div className="space-y-8">
+            <Skeleton className="h-[300px] w-full" />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (isReviewsError || isBeansError) {
     return (
