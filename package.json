@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "sync-db": "tsx scripts/sync-db.ts"
+    "sync-db": "tsx scripts/sync-db.ts",
+    "migrate-prod": "tsx scripts/migrate-prod.ts",
+    "dump-schema": "tsx scripts/dump-schema.ts",
+    "setup-exec-sql": "tsx scripts/setup-exec-sql.ts",
+    "copy-schema": "tsx scripts/copy-schema.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -84,6 +88,7 @@
     "@types/leaflet": "^1.9.8",
     "@types/lodash.debounce": "^4.0.9",
     "dotenv": "^16.4.5",
+    "supabase": "^1.219.2",
     "tsx": "^4.7.1"
   }
 }
