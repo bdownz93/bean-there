@@ -1,7 +1,7 @@
 import { BeanList } from "@/components/bean/bean-list"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { getFeaturedBeans, getAllRoasters } from "@/lib/supabase"
+import { getFeaturedBeans, getAllRoasters, testConnection } from "@/lib/supabase"
 import Link from "next/link"
 import { Coffee, MapPin, Star, TrendingUp } from "lucide-react"
 import { RoasterCard } from "@/components/roaster/roaster-card"
@@ -9,6 +9,9 @@ import { RecentReviewsWrapper } from "@/components/reviews/recent-reviews-wrappe
 import { ReviewCount } from "@/components/stats/review-count"
 
 export default async function Home() {
+  // Test the connection
+  await testConnection()
+
   try {
     // Get featured beans and roasters
     const [featuredBeans, roasters] = await Promise.all([

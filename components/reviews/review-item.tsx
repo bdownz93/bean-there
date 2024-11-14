@@ -126,7 +126,7 @@ export function ReviewItem({ review }: ReviewItemProps) {
 
               {showComments && (
                 <div className="mt-4 space-y-4">
-                  {comments.map((comment) => (
+                  {comments.map((comment: any) => (
                     <div key={comment.id} className="flex items-start gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={comment.users?.avatar_url} alt={comment.users?.name} />
@@ -145,12 +145,9 @@ export function ReviewItem({ review }: ReviewItemProps) {
                   ))}
 
                   {user && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 mt-4">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage 
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`} 
-                          alt={user.email || ""} 
-                        />
+                        <AvatarImage src={user.user_metadata?.avatar_url} alt={user.email || ""} />
                         <AvatarFallback>
                           <User className="h-3 w-3" />
                         </AvatarFallback>
@@ -164,13 +161,18 @@ export function ReviewItem({ review }: ReviewItemProps) {
                         />
                         <Button
                           size="sm"
-                          disabled={!commentInput.trim()}
-                          onClick={() => {
-                            addComment.mutate(commentInput)
-                            setCommentInput("")
+                          disabled={!commentInput.trim() || addComment.isPending}
+                          onClick={async () => {
+                            try {
+                              await addComment.mutateAsync(commentInput)
+                              setCommentInput("")
+                              setShowComments(true)
+                            } catch (error) {
+                              console.error('Error submitting comment:', error)
+                            }
                           }}
                         >
-                          Post
+                          {addComment.isPending ? "Posting..." : "Post"}
                         </Button>
                       </div>
                     </div>

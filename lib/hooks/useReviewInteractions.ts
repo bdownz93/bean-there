@@ -25,25 +25,52 @@ export function useReviewInteractions(reviewId: string) {
     }
   })
 
-  const { data: comments = [] } = useQuery({
+  const { data: comments = [], isLoading: isLoadingComments } = useQuery({
     queryKey: ['review-comments', reviewId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      console.log('Fetching comments for review:', reviewId)
+      const { data: comments, error } = await supabase
         .from('review_comments')
         .select(`
-          *,
-          users (
-            id,
-            name,
-            avatar_url
-          )
+          id,
+          content,
+          created_at,
+          user_id,
+          review_id
         `)
         .eq('review_id', reviewId)
         .order('created_at', { ascending: true })
 
-      if (error) throw error
-      return data || []
-    }
+      if (error) {
+        console.error('Error fetching comments:', error)
+        return []
+      }
+
+      // Fetch user data separately
+      const commentsWithUsers = await Promise.all(
+        (comments || []).map(async (comment) => {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('id, name, avatar_url')
+            .eq('id', comment.user_id)
+            .single()
+
+          return {
+            ...comment,
+            users: userData || {
+              id: comment.user_id,
+              name: 'Unknown User',
+              avatar_url: null
+            }
+          }
+        })
+      )
+
+      console.log('Fetched comments with users:', commentsWithUsers)
+      return commentsWithUsers || []
+    },
+    staleTime: 1000, // Consider data stale after 1 second
+    refetchOnWindowFocus: true
   })
 
   useEffect(() => {
@@ -92,28 +119,62 @@ export function useReviewInteractions(reviewId: string) {
   const addComment = useMutation({
     mutationFn: async (content: string) => {
       if (!user) throw new Error('Must be logged in to comment')
+      
+      console.log('Submitting comment:', {
+        reviewId,
+        userId: user.id,
+        content
+      })
 
-      const { error } = await supabase
+      // First, insert the comment
+      const { data: newComment, error: insertError } = await supabase
         .from('review_comments')
         .insert({ 
           review_id: reviewId,
           user_id: user.id,
-          content 
+          content,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
+        .select()
+        .single()
 
-      if (error) throw error
+      if (insertError) {
+        console.error('Error inserting comment:', insertError)
+        throw insertError
+      }
+
+      console.log('Comment inserted:', newComment)
+
+      // Fetch the user data
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, name, avatar_url')
+        .eq('id', user.id)
+        .single()
+
+      return {
+        ...newComment,
+        users: userData || {
+          id: user.id,
+          name: 'Unknown User',
+          avatar_url: null
+        }
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Comment added successfully:', data)
       queryClient.invalidateQueries({ queryKey: ['review-comments', reviewId] })
       toast({
         title: "Success",
         description: "Comment added successfully"
       })
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error('Comment submission error:', error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add comment",
+        description: error.message || "Failed to add comment",
         variant: "destructive"
       })
     }
@@ -123,6 +184,7 @@ export function useReviewInteractions(reviewId: string) {
     likes,
     comments,
     isLiked,
+    isLoadingComments,
     toggleLike,
     addComment
   }

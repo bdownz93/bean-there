@@ -5,28 +5,39 @@ import type { Database } from '@/types/supabase'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
+// Debug: Log connection details (remove in production)
+console.log('Supabase URL:', supabaseUrl)
+console.log('Anon Key exists:', !!supabaseAnonKey)
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Add error handling to test connection
+export async function testConnection() {
+  const { data, error } = await supabase
+    .from('roasters')
+    .select('count')
+    .limit(1)
+  
+  if (error) {
+    console.error('Supabase connection error:', error)
+    return false
+  }
+  console.log('Supabase connected successfully:', data)
+  return true
+}
 
 // Bean-related functions
 export async function getFeaturedBeans() {
   const { data, error } = await supabase
-    .from('beans')
-    .select(`
-      *,
-      roaster:roaster_id (
-        id,
-        name,
-        slug
-      )
-    `)
-    .order('rating', { ascending: false })
-    .limit(3)
+    .from('featured_beans')
+    .select('*')
+    .limit(3);
 
   if (error) {
-    console.error('Error fetching featured beans:', error)
-    return []
+    console.error('Error fetching featured beans:', error);
+    return [];
   }
-  return data || []
+  return data || [];
 }
 
 export async function getAllBeans() {

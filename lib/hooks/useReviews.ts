@@ -11,6 +11,15 @@ export interface Review {
   bean_id: string
   rating: number
   content: string
+  brew_method?: string
+  grind_size?: string
+  flavor_notes?: string[]
+  aroma?: number
+  body?: number
+  acidity?: number
+  sweetness?: number
+  aftertaste?: number
+  photo_url?: string
   created_at: string
   updated_at: string
   user?: {
@@ -53,27 +62,90 @@ export function useReviews(beanId: string) {
   })
 
   const addReview = useMutation({
-    mutationFn: async ({ rating, content }: { rating: number, content: string }) => {
+    mutationFn: async ({ 
+      rating, 
+      content,
+      brewMethod,
+      grindSize,
+      selectedFlavors,
+      photo,
+      aroma,
+      body,
+      acidity,
+      sweetness,
+      aftertaste
+    }: { 
+      rating: number;
+      content: string;
+      brewMethod?: string;
+      grindSize?: string;
+      selectedFlavors?: string[];
+      photo?: File | null;
+      aroma?: number;
+      body?: number;
+      acidity?: number;
+      sweetness?: number;
+      aftertaste?: number;
+    }) => {
       if (!user) throw new Error("Must be logged in to review")
 
-      const { data, error } = await supabase
-        .from("reviews")
-        .insert([
-          {
-            user_id: user.id,
-            bean_id: beanId,
-            rating,
-            content
-          }
-        ])
-        .select()
+      try {
+        const { data, error } = await supabase
+          .from("reviews")
+          .insert([
+            {
+              user_id: user.id,
+              bean_id: beanId,
+              rating: Math.min(5, Math.max(0, rating)), // Ensure rating is 0-5
+              content,
+              brew_method: brewMethod,
+              grind_size: grindSize,
+              flavor_notes: selectedFlavors,
+              // Store raw 0-100 values
+              aroma: aroma ? Math.min(100, Math.max(0, aroma)) : null,
+              body: body ? Math.min(100, Math.max(0, body)) : null,
+              acidity: acidity ? Math.min(100, Math.max(0, acidity)) : null,
+              sweetness: sweetness ? Math.min(100, Math.max(0, sweetness)) : null,
+              aftertaste: aftertaste ? Math.min(100, Math.max(0, aftertaste)) : null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+          ])
+          .select('*')
+          .single()
 
-      if (error) {
-        console.error("Error adding review:", error)
+        if (error) {
+          console.error("Error adding review:", error)
+          throw error
+        }
+
+        // Handle photo upload if provided
+        if (photo && data) {
+          const photoPath = `reviews/${data.id}/${photo.name}`
+          const { error: uploadError } = await supabase.storage
+            .from("review-photos")
+            .upload(photoPath, photo)
+
+          if (uploadError) {
+            console.error("Error uploading photo:", uploadError)
+          } else {
+            // Update review with photo URL
+            const { error: updateError } = await supabase
+              .from("reviews")
+              .update({ photo_url: photoPath })
+              .eq("id", data.id)
+
+            if (updateError) {
+              console.error("Error updating review with photo:", updateError)
+            }
+          }
+        }
+
+        return data
+      } catch (error) {
+        console.error("Error in review submission:", error)
         throw error
       }
-
-      return data[0]
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reviews", beanId] })
@@ -82,10 +154,11 @@ export function useReviews(beanId: string) {
         description: "Your review has been added successfully."
       })
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error("Review submission error:", error)
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to submit review. Please try again.",
         variant: "destructive"
       })
     }
