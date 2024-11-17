@@ -44,14 +44,19 @@ export function BeanList({ beans }: BeanListProps) {
                 <div className="space-y-1">
                   <h3 className="font-semibold text-lg">{bean.name}</h3>
                   <div className="text-sm text-muted-foreground">
-                    by {typeof bean.roaster === 'string' ? bean.roaster : bean.roaster?.name}
+                    by {bean.roaster?.name || 'Unknown Roaster'}
                   </div>
                 </div>
-                {typeof bean.rating === 'number' && (
+                {typeof bean.rating === 'number' && bean.rating > 0 && (
                   <div className="flex items-center">
-                    <Star className="h-4 w-4 fill-current text-yellow-400" />
-                    <span className="ml-1 text-sm font-medium">
+                    <Star className="h-5 w-5 fill-current text-yellow-400" />
+                    <span className="ml-1 font-semibold">
                       {bean.rating.toFixed(1)}
+                      {bean.review_count > 0 && (
+                        <span className="ml-1 text-sm text-muted-foreground">
+                          ({bean.review_count})
+                        </span>
+                      )}
                     </span>
                   </div>
                 )}

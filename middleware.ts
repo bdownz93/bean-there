@@ -6,7 +6,7 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
   const supabase = createMiddlewareClient({ req, res })
 
-  // Get user and refresh session if needed
+  // Refresh session if needed
   const { data: { session }, error } = await supabase.auth.getSession()
 
   // For development, log session state
@@ -15,30 +15,45 @@ export async function middleware(req: NextRequest) {
       path: req.nextUrl.pathname,
       hasSession: !!session,
       userId: session?.user?.id,
-      error: error?.message,
-      cookies: req.cookies.getAll().map(c => c.name)
+      error: error?.message
     })
   }
 
-  // Handle auth routes
-  if (req.nextUrl.pathname.startsWith('/auth')) {
+  // Handle auth callback
+  if (req.nextUrl.pathname.startsWith('/auth/callback')) {
     return res
   }
 
-  // Protected routes
-  if (req.nextUrl.pathname === '/profile') {
-    if (!session?.user) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Redirecting to login: No session or user')
+  // Protected routes that require authentication
+  const protectedRoutes = ['/profile', '/beans/new', '/roasters/new']
+  if (protectedRoutes.some(route => req.nextUrl.pathname.startsWith(route))) {
+    if (!session) {
+      // Store the original URL to redirect back after login
+      const redirectUrl = new URL('/login', req.url)
+      redirectUrl.searchParams.set('redirect', req.nextUrl.pathname)
+      
+      // Create a response with the redirect
+      const redirectRes = NextResponse.redirect(redirectUrl)
+      
+      // Copy the session cookie to the redirect response
+      const sessionCookie = req.cookies.get('supabase-auth-token')
+      if (sessionCookie) {
+        redirectRes.cookies.set('supabase-auth-token', sessionCookie.value, {
+          path: '/',
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production'
+        })
       }
-      return NextResponse.redirect(new URL('/login', req.url))
+      
+      return redirectRes
     }
   }
 
-  // Auth page redirects
+  // Auth page redirects (prevent authenticated users from accessing login/signup)
   if (['/login', '/signup'].includes(req.nextUrl.pathname)) {
-    if (session?.user) {
-      return NextResponse.redirect(new URL('/', req.url))
+    if (session) {
+      const redirectTo = req.nextUrl.searchParams.get('redirect') || '/'
+      return NextResponse.redirect(new URL(redirectTo, req.url))
     }
   }
 
@@ -47,12 +62,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|images).*)',
   ],
 }

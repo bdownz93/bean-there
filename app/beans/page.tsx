@@ -1,12 +1,23 @@
 import { BeansClient } from "@/components/bean/beans-client"
-import { getAllBeans, getAllRoasters } from "@/lib/supabase"
+import { getAllRoasters } from "@/lib/supabase"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { supabaseServer } from "@/lib/supabase-server"
 
 export default async function BeansPage() {
   try {
-    const [beans, roasters] = await Promise.all([
-      getAllBeans(),
+    const [{ data: beans }, roasters] = await Promise.all([
+      supabaseServer
+        .from('beans')
+        .select(`
+          *,
+          roaster:roaster_id (
+            id,
+            name,
+            slug
+          )
+        `)
+        .order('created_at', { ascending: false }),
       getAllRoasters()
     ])
 

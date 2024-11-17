@@ -35,9 +35,7 @@ export function BeansClient({ initialBeans, roasters: initialRoasters }: BeansCl
         const searchTerms = searchQuery.toLowerCase()
         return (
           bean.name.toLowerCase().includes(searchTerms) ||
-          (typeof bean.roaster === 'string'
-            ? bean.roaster.toLowerCase().includes(searchTerms)
-            : bean.roaster?.name.toLowerCase().includes(searchTerms)) ||
+          bean.roaster?.name.toLowerCase().includes(searchTerms) ||
           bean.origin?.toLowerCase().includes(searchTerms)
         )
       })

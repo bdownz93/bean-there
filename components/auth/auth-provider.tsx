@@ -10,7 +10,7 @@ interface AuthContextType {
   user: User | null
   isLoading: boolean
   signUp: (email: string, password: string, name: string, username: string) => Promise<void>
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (email: string, password: string) => Promise<{ data?: any; error?: any }>
   signInWithGoogle: () => Promise<void>
   signInWithGithub: () => Promise<void>
   signOut: () => Promise<void>
@@ -34,15 +34,6 @@ export function AuthProvider({ children, initialSession }: AuthProviderProps) {
       setUser(initialSession.user)
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Auth Provider:', {
-        hasInitialSession: !!initialSession,
-        hasUser: !!user,
-        userId: user?.id,
-        initialUserId: initialSession?.user?.id
-      })
-    }
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (process.env.NODE_ENV === 'development') {
         console.log('Auth State Change:', { 
@@ -52,58 +43,13 @@ export function AuthProvider({ children, initialSession }: AuthProviderProps) {
         })
       }
 
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        setUser(session?.user ?? null)
-        
-        try {
-          if (session?.user) {
-            // Ensure user profile exists
-            const { data: existingProfile } = await supabase
-              .from('users')
-              .select('id')
-              .eq('id', session.user.id)
-              .single()
-
-            if (!existingProfile) {
-              // Create profile if it doesn't exist
-              await supabase.from('users').insert([
-                {
-                  id: session.user.id,
-                  username: session.user.email?.split('@')[0],
-                  name: session.user.user_metadata.name || session.user.email?.split('@')[0],
-                  avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                }
-              ])
-
-              // Create initial user stats
-              await supabase.from('user_stats').insert([
-                {
-                  user_id: session.user.id,
-                  beans_tried: 0,
-                  roasters_visited: 0,
-                  total_reviews: 0,
-                  unique_origins: 0,
-                  roasters_created: 0,
-                  experience_points: 0,
-                  level: 1,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                }
-              ])
-            }
-          }
-          router.refresh()
-        } catch (error) {
-          console.error("Error creating user profile:", error)
-        }
-      }
-      
       if (event === 'SIGNED_OUT') {
         setUser(null)
         router.refresh()
         router.push('/login')
+      } else if (session?.user) {
+        setUser(session.user)
+        router.refresh()
       }
     })
 
@@ -161,20 +107,19 @@ export function AuthProvider({ children, initialSession }: AuthProviderProps) {
         password
       })
 
-      if (error) throw error
+      if (error) {
+        console.error('Error signing in:', error)
+        return { error }
+      }
 
       if (data.session) {
         setUser(data.session.user)
         router.refresh()
-        router.push('/')
+        return { data }
       }
     } catch (error) {
       console.error('Error signing in:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to sign in",
-        variant: "destructive"
-      })
+      return { error }
     } finally {
       setIsLoading(false)
     }
@@ -232,14 +177,15 @@ export function AuthProvider({ children, initialSession }: AuthProviderProps) {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
       
+      // Force clear the user state
       setUser(null)
       router.refresh()
       router.push('/login')
     } catch (error) {
       console.error('Error signing out:', error)
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to sign out",
+        title: "Error signing out",
+        description: "Please try again",
         variant: "destructive"
       })
     } finally {

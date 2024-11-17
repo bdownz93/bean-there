@@ -97,6 +97,32 @@ LEFT JOIN reviews rv ON b.id = rv.bean_id
 WHERE b.is_featured = true
 GROUP BY b.id, r.id;
 
+CREATE MATERIALIZED VIEW bean_stats AS
+SELECT 
+    b.id,
+    COALESCE(AVG(rv.rating)::NUMERIC(10,2), 0) as average_rating,
+    COUNT(rv.id) as review_count
+FROM beans b
+LEFT JOIN reviews rv ON b.id = rv.bean_id
+GROUP BY b.id;
+
+CREATE INDEX bean_stats_id_idx ON bean_stats(id);
+
+-- Refresh function for bean_stats
+CREATE OR REPLACE FUNCTION refresh_bean_stats()
+RETURNS trigger AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY bean_stats;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to refresh bean_stats
+CREATE TRIGGER refresh_bean_stats_on_review
+    AFTER INSERT OR UPDATE OR DELETE ON reviews
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION refresh_bean_stats();
+
 -- Create RLS policies
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_stats ENABLE ROW LEVEL SECURITY;

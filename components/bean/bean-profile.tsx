@@ -31,10 +31,10 @@ export function BeanProfile({ bean }: BeanProfileProps) {
               <div>
                 <CardTitle className="text-2xl">{bean.name}</CardTitle>
                 <div className="flex items-center mt-2 text-muted-foreground">
-                  <span>{typeof bean.roaster === 'string' ? bean.roaster : bean.roaster?.name}</span>
+                  <span>{bean.roaster?.name || 'Unknown Roaster'}</span>
                 </div>
               </div>
-              {bean.rating != null && (
+              {typeof bean.rating === 'number' && (
                 <div className="flex items-center">
                   <Star className="h-5 w-5 fill-current text-yellow-400" />
                   <span className="ml-1 font-semibold">{bean.rating.toFixed(1)}</span>

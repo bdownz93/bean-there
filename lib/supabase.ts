@@ -72,7 +72,18 @@ export async function getFeaturedBeans() {
 export async function getAllBeans() {
   const { data, error } = await supabase
     .from('beans')
-    .select('*')
+    .select(`
+      *,
+      roaster:roaster_id (
+        id,
+        name,
+        slug
+      ),
+      stats:bean_stats!bean_stats_id_fkey (
+        average_rating,
+        review_count
+      )
+    `)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -80,13 +91,28 @@ export async function getAllBeans() {
     return []
   }
 
-  return data
+  return data.map(bean => ({
+    ...bean,
+    rating: bean.stats?.average_rating || null,
+    review_count: bean.stats?.review_count || 0
+  }))
 }
 
 export async function getBeanById(id: string) {
   const { data, error } = await supabase
     .from('beans')
-    .select('*')
+    .select(`
+      *,
+      roaster:roaster_id (
+        id,
+        name,
+        slug
+      ),
+      stats:bean_stats!bean_stats_id_fkey (
+        average_rating,
+        review_count
+      )
+    `)
     .eq('id', id)
     .single()
 
@@ -95,7 +121,11 @@ export async function getBeanById(id: string) {
     return null
   }
 
-  return data
+  return {
+    ...data,
+    rating: data.stats?.average_rating || null,
+    review_count: data.stats?.review_count || 0
+  }
 }
 
 // Roaster-related functions
