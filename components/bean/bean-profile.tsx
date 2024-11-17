@@ -34,7 +34,7 @@ export function BeanProfile({ bean }: BeanProfileProps) {
                   <span>{typeof bean.roaster === 'string' ? bean.roaster : bean.roaster?.name}</span>
                 </div>
               </div>
-              {bean.rating !== null && (
+              {bean.rating != null && (
                 <div className="flex items-center">
                   <Star className="h-5 w-5 fill-current text-yellow-400" />
                   <span className="ml-1 font-semibold">{bean.rating.toFixed(1)}</span>
