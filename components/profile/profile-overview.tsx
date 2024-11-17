@@ -30,17 +30,30 @@ export function ProfileOverview({ userId }: ProfileOverviewProps) {
         .eq('user_id', userId)
         .single()
 
-      return {
-        ...user,
-        stats: statsError ? {
-          beans_tried: 0,
-          roasters_visited: 0,
-          total_reviews: 0,
-          unique_origins: 0,
-          level: 1,
-          experience_points: 0
-        } : stats
+      if (!stats) {
+        // Create initial user stats if they don't exist
+        const { data: newStats, error: createError } = await supabase
+          .from('user_stats')
+          .insert([{
+            user_id: userId,
+            beans_tried: 0,
+            roasters_visited: 0,
+            total_reviews: 0,
+            unique_origins: 0,
+            roasters_created: 0,
+            experience_points: 0,
+            level: 1,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }])
+          .select()
+          .single()
+
+        if (createError) throw createError
+        return { ...user, stats: newStats }
       }
+
+      return { ...user, stats }
     }
   })
 
@@ -63,77 +76,107 @@ export function ProfileOverview({ userId }: ProfileOverviewProps) {
   if (!profile) {
     return (
       <Card>
-        <CardContent className="p-6 text-center">
-          <p className="text-muted-foreground">Profile not found</p>
+        <CardContent className="p-6">
+          <p className="text-center text-muted-foreground">
+            Unable to load profile. Please try again later.
+          </p>
         </CardContent>
       </Card>
     )
   }
 
+  const joinDate = new Date(profile.created_at).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-start gap-6">
-          <Avatar className="h-20 w-20">
-            <AvatarImage src={profile.avatar_url} alt={profile.name} />
-            <AvatarFallback>
-              <UserIcon className="h-10 w-10" />
-            </AvatarFallback>
-          </Avatar>
-          
-          <div className="flex-1">
-            <div className="space-y-1">
+    <div className="space-y-6">
+      {/* Profile Card */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
+            <Avatar className="w-20 h-20">
+              <AvatarImage src={profile.avatar_url} alt={profile.name} />
+              <AvatarFallback>
+                <UserIcon className="w-8 h-8" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="space-y-1 flex-1">
               <h2 className="text-2xl font-bold">{profile.name}</h2>
               <p className="text-muted-foreground">@{profile.username}</p>
-            </div>
-
-            <p className="mt-2">{profile.bio || "No bio yet"}</p>
-
-            <div className="mt-4 flex items-center gap-6 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Coffee className="h-4 w-4" />
-                <span>Level {profile.stats.level}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                <span>Joined {new Date(profile.created_at).toLocaleDateString()}</span>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="w-4 h-4" />
+                <span>Joined {joinDate}</span>
               </div>
             </div>
+            <Button>Edit Profile</Button>
+          </div>
+        </CardContent>
+      </Card>
 
-            <div className="mt-6 grid grid-cols-4 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-bold">{profile.stats.total_reviews}</div>
-                <div className="text-xs text-muted-foreground">Reviews</div>
-              </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <Coffee className="w-8 h-8" />
               <div>
                 <div className="text-2xl font-bold">{profile.stats.beans_tried}</div>
-                <div className="text-xs text-muted-foreground">Beans Tried</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold">{profile.stats.roasters_visited}</div>
-                <div className="text-xs text-muted-foreground">Roasters</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold">{profile.stats.unique_origins}</div>
-                <div className="text-xs text-muted-foreground">Origins</div>
+                <div className="text-muted-foreground">Beans Tried</div>
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            {profile.favorite_coffee_styles?.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-sm font-medium mb-2">Favorite Coffee Styles</h3>
-                <div className="flex flex-wrap gap-2">
-                  {profile.favorite_coffee_styles.map((style) => (
-                    <Badge key={style} variant="secondary">
-                      {style}
-                    </Badge>
-                  ))}
-                </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <UserIcon className="w-8 h-8" />
+              <div>
+                <div className="text-2xl font-bold">{profile.stats.roasters_visited}</div>
+                <div className="text-muted-foreground">Roasters Visited</div>
               </div>
-            )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <Coffee className="w-8 h-8" />
+              <div>
+                <div className="text-2xl font-bold">{profile.stats.total_reviews}</div>
+                <div className="text-muted-foreground">Reviews Written</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Level Card */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">Level {profile.stats.level}</h3>
+              <p className="text-sm text-muted-foreground">
+                {profile.stats.experience_points} XP
+              </p>
+            </div>
+            <Badge variant="outline">Coffee Explorer</Badge>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+          <div className="w-full h-2 bg-muted rounded overflow-hidden">
+            <div
+              className="h-full bg-primary"
+              style={{
+                width: `${(profile.stats.experience_points % 100)}%`
+              }}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

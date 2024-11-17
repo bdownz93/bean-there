@@ -2,84 +2,99 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
 
 // Default to empty strings to prevent URL constructor errors
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
 // Debug: Log connection details (remove in production)
-console.log('Supabase URL:', supabaseUrl)
-console.log('Anon Key exists:', !!supabaseAnonKey)
+if (process.env.NODE_ENV === 'development') {
+  console.log('Initializing Supabase client with:', {
+    url: supabaseUrl,
+    hasAnonKey: !!supabaseAnonKey
+  })
+}
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined
+  }
+})
 
 // Add error handling to test connection
 export async function testConnection() {
-  const { data, error } = await supabase
-    .from('roasters')
-    .select('count')
-    .limit(1)
-  
-  if (error) {
-    console.error('Supabase connection error:', error)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Testing Supabase connection...')
+  }
+  try {
+    const { data, error } = await supabase
+      .from('roasters')
+      .select('count')
+      .single()
+    
+    if (error) {
+      console.error('Supabase connection error:', {
+        error,
+        message: error.message,
+        hint: error.hint,
+        details: error.details
+      })
+      return false
+    }
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Supabase connected successfully:', data)
+    }
+    return true
+  } catch (err) {
+    console.error('Unexpected error during connection test:', err)
     return false
   }
-  console.log('Supabase connected successfully:', data)
-  return true
 }
 
 // Bean-related functions
 export async function getFeaturedBeans() {
   const { data, error } = await supabase
-    .from('featured_beans')
+    .from('beans')
     .select('*')
-    .limit(3);
+    .eq('featured', true)
+    .limit(4)
 
   if (error) {
-    console.error('Error fetching featured beans:', error);
-    return [];
+    console.error('Error fetching featured beans:', error)
+    return []
   }
-  return data || [];
+
+  return data
 }
 
 export async function getAllBeans() {
   const { data, error } = await supabase
     .from('beans')
-    .select(`
-      *,
-      roaster:roaster_id (
-        id,
-        name,
-        slug
-      )
-    `)
+    .select('*')
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Error fetching beans:', error)
+    console.error('Error fetching all beans:', error)
     return []
   }
-  return data || []
+
+  return data
 }
 
 export async function getBeanById(id: string) {
   const { data, error } = await supabase
     .from('beans')
-    .select(`
-      *,
-      roaster:roaster_id (
-        id,
-        name,
-        slug,
-        location,
-        description
-      )
-    `)
+    .select('*')
     .eq('id', id)
     .single()
 
   if (error) {
-    console.error('Error fetching bean:', error)
+    console.error('Error fetching bean by id:', error)
     return null
   }
+
   return data
 }
 
@@ -87,39 +102,37 @@ export async function getBeanById(id: string) {
 export async function getAllRoasters() {
   const { data, error } = await supabase
     .from('roasters')
-    .select(`
-      *,
-      beans (
-        id,
-        name,
-        origin,
-        roast_level,
-        price,
-        rating
-      )
-    `)
+    .select('*')
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Error fetching roasters:', error)
+    console.error('Error fetching all roasters:', error)
     return []
   }
-  return data || []
+
+  return data
+}
+
+export async function getRoasterBySlug(slug: string) {
+  const { data, error } = await supabase
+    .from('roasters')
+    .select('*')
+    .eq('slug', slug)
+    .single()
+
+  if (error) {
+    console.error('Error fetching roaster by slug:', error)
+    return null
+  }
+
+  return data
 }
 
 // Review-related functions
 export async function getReviews(beanId: string) {
   const { data, error } = await supabase
     .from('reviews')
-    .select(`
-      *,
-      user:user_id (
-        id,
-        name,
-        username,
-        avatar_url
-      )
-    `)
+    .select('*')
     .eq('bean_id', beanId)
     .order('created_at', { ascending: false })
 
@@ -127,7 +140,8 @@ export async function getReviews(beanId: string) {
     console.error('Error fetching reviews:', error)
     return []
   }
-  return data || []
+
+  return data
 }
 
 export async function createReview(review: {
@@ -145,42 +159,68 @@ export async function createReview(review: {
 }) {
   const { data, error } = await supabase
     .from('reviews')
-    .insert([{
-      ...review,
-      user_id: (await supabase.auth.getUser()).data.user?.id
-    }])
+    .insert([review])
     .select()
+    .single()
 
   if (error) {
     console.error('Error creating review:', error)
-    throw error
+    return null
   }
 
-  return data[0]
+  return data
 }
 
 // Helper function for uploading review photos
 export async function uploadReviewPhoto(file: File, userId: string): Promise<string> {
-  try {
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${userId}/${Math.random()}.${fileExt}`
+  const { data, error } = await supabase.storage
+    .from('review-photos')
+    .upload(`${userId}/${Date.now()}-${file.name}`, file)
 
-    const { error: uploadError, data } = await supabase.storage
-      .from('review-photos')
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false
-      })
-
-    if (uploadError) throw uploadError
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('review-photos')
-      .getPublicUrl(fileName)
-
-    return publicUrl
-  } catch (error) {
+  if (error) {
     console.error('Error uploading review photo:', error)
     throw error
   }
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('review-photos')
+    .getPublicUrl(data.path)
+
+  return publicUrl
+}
+
+// Helper function for uploading roaster logos
+export async function uploadRoasterLogo(file: File, userId: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('roaster-logos')
+    .upload(`${userId}/${Date.now()}-${file.name}`, file)
+
+  if (error) {
+    console.error('Error uploading roaster logo:', error)
+    throw error
+  }
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('roaster-logos')
+    .getPublicUrl(data.path)
+
+  return publicUrl
+}
+
+// Helper function for uploading bean photos
+export async function uploadBeanPhoto(file: File, userId: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('bean-photos')
+    .upload(`${userId}/${Date.now()}-${file.name}`, file)
+
+  if (error) {
+    console.error('Error uploading bean photo:', error)
+    throw error
+  }
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('bean-photos')
+    .getPublicUrl(data.path)
+
+  return publicUrl
 }

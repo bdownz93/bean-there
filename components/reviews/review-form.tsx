@@ -113,11 +113,12 @@ export function ReviewForm({ onSubmit, onCancel, isSubmitting }: ReviewFormProps
       grindSize,
       selectedFlavors,
       photo,
-      aroma,
-      body,
-      acidity,
-      sweetness,
-      aftertaste
+      // Convert slider values (0-100) to 1-5 scale
+      aroma: Math.round((aroma / 100) * 4) + 1,
+      body: Math.round((body / 100) * 4) + 1,
+      acidity: Math.round((acidity / 100) * 4) + 1,
+      sweetness: Math.round((sweetness / 100) * 4) + 1,
+      aftertaste: Math.round((aftertaste / 100) * 4) + 1
     })
   }
 
@@ -148,22 +149,57 @@ export function ReviewForm({ onSubmit, onCancel, isSubmitting }: ReviewFormProps
           <div>
             <Label>Aroma</Label>
             <Slider value={[aroma]} onValueChange={([v]) => setAroma(v)} max={100} step={1} />
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+            </div>
           </div>
           <div>
             <Label>Body</Label>
             <Slider value={[body]} onValueChange={([v]) => setBody(v)} max={100} step={1} />
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+            </div>
           </div>
           <div>
             <Label>Acidity</Label>
             <Slider value={[acidity]} onValueChange={([v]) => setAcidity(v)} max={100} step={1} />
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+            </div>
           </div>
           <div>
             <Label>Sweetness</Label>
             <Slider value={[sweetness]} onValueChange={([v]) => setSweetness(v)} max={100} step={1} />
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+            </div>
           </div>
           <div>
             <Label>Aftertaste</Label>
             <Slider value={[aftertaste]} onValueChange={([v]) => setAftertaste(v)} max={100} step={1} />
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+            </div>
           </div>
         </div>
 

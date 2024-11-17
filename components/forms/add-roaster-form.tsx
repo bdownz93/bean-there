@@ -17,9 +17,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Store } from "lucide-react"
+import { Store, ImageIcon, X } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { supabase } from "@/lib/supabase"
+import { supabase, uploadRoasterLogo } from "@/lib/supabase"
 import { useQueryClient } from "@tanstack/react-query"
 import { LocationSearch } from "@/components/location/location-search"
 
@@ -32,7 +32,7 @@ const SPECIALTIES = [
 const roasterSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
-  website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  website_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal(""))
 })
 
@@ -52,10 +52,25 @@ export function AddRoasterForm() {
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [logo, setLogo] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm<RoasterFormValues>({
     resolver: zodResolver(roasterSchema)
   })
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setLogo(file)
+      setLogoPreview(URL.createObjectURL(file))
+    }
+  }
+
+  const removeLogo = () => {
+    setLogo(null)
+    setLogoPreview(null)
+  }
 
   const toggleSpecialty = (specialty: string) => {
     setSelectedSpecialties(prev =>
@@ -78,13 +93,33 @@ export function AddRoasterForm() {
     setIsSubmitting(true)
 
     try {
+      const userId = (await supabase.auth.getUser()).data.user?.id
+      if (!userId) throw new Error("User not found")
+
+      let logoUrl = null
+      if (logo) {
+        try {
+          logoUrl = await uploadRoasterLogo(logo, userId)
+        } catch (error) {
+          console.error('Error uploading logo:', error)
+          throw new Error('Failed to upload logo')
+        }
+      }
+
+      // Create a URL-friendly slug from the name
+      const slug = data.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+
       const { data: roaster, error } = await supabase
         .from('roasters')
         .insert([
           {
             name: data.name,
+            slug,
             description: data.description,
-            website: data.website || null,
+            website_url: data.website_url || null,
             phone: data.phone || null,
             location: selectedLocation.name,
             coordinates: {
@@ -92,8 +127,8 @@ export function AddRoasterForm() {
               lng: selectedLocation.lng
             },
             specialties: selectedSpecialties,
-            created_by: (await supabase.auth.getUser()).data.user?.id,
-            logo_url: "https://images.unsplash.com/photo-1559122143-f4e9bf761285?w=800&auto=format&fit=crop&q=60",
+            created_by: userId,
+            logo_url: logoUrl,
             rating: 0
           }
         ])
@@ -112,6 +147,8 @@ export function AddRoasterForm() {
       reset()
       setSelectedLocation(null)
       setSelectedSpecialties([])
+      setLogo(null)
+      setLogoPreview(null)
       setOpen(false)
 
       router.push(`/roasters/${roaster.slug}`)
@@ -119,7 +156,7 @@ export function AddRoasterForm() {
       console.error('Error adding roaster:', error)
       toast({
         title: "Error",
-        description: "Failed to add roaster. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to add roaster",
         variant: "destructive"
       })
     } finally {
@@ -135,7 +172,7 @@ export function AddRoasterForm() {
           Add Roaster
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Roaster</DialogTitle>
         </DialogHeader>
@@ -149,20 +186,85 @@ export function AddRoasterForm() {
           </div>
 
           <div className="space-y-2">
-            <Label>Location</Label>
-            <LocationSearch onLocationSelect={setSelectedLocation} />
-            {selectedLocation && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Selected: {selectedLocation.name}
-              </p>
+            <Label>Logo</Label>
+            {logoPreview ? (
+              <div className="relative mt-2 w-32 h-32 rounded-lg overflow-hidden">
+                <img
+                  src={logoPreview}
+                  alt="Logo preview"
+                  className="object-cover w-full h-full"
+                />
+                <button
+                  type="button"
+                  onClick={removeLogo}
+                  className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="mt-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoChange}
+                  className="hidden"
+                  id="logo-upload"
+                />
+                <label
+                  htmlFor="logo-upload"
+                  className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  <span>Upload Logo</span>
+                </label>
+              </div>
             )}
           </div>
 
           <div className="space-y-2">
+            <Label>Location</Label>
+            <LocationSearch
+              onSelect={(location) => setSelectedLocation(location)}
+              selectedLocation={selectedLocation}
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea id="description" {...register("description")} />
+            <Textarea
+              id="description"
+              {...register("description")}
+              className="h-32"
+            />
             {errors.description && (
               <p className="text-sm text-destructive">{errors.description.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="website_url">Website</Label>
+            <Input
+              id="website_url"
+              type="url"
+              placeholder="https://example.com"
+              {...register("website_url")}
+            />
+            {errors.website_url && (
+              <p className="text-sm text-destructive">{errors.website_url.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone</Label>
+            <Input
+              id="phone"
+              type="tel"
+              placeholder="+1 (555) 123-4567"
+              {...register("phone")}
+            />
+            {errors.phone && (
+              <p className="text-sm text-destructive">{errors.phone.message}</p>
             )}
           </div>
 
@@ -182,24 +284,19 @@ export function AddRoasterForm() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="website">Website</Label>
-              <Input id="website" {...register("website")} placeholder="https://" />
-              {errors.website && (
-                <p className="text-sm text-destructive">{errors.website.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" {...register("phone")} placeholder="+1 (555) 555-5555" />
-            </div>
+          <div className="flex justify-end gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Adding..." : "Add Roaster"}
+            </Button>
           </div>
-
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Adding..." : "Add Roaster"}
-          </Button>
         </form>
       </DialogContent>
     </Dialog>

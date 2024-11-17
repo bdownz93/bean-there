@@ -89,6 +89,7 @@
     "@types/lodash.debounce": "^4.0.9",
     "dotenv": "^16.4.5",
     "supabase": "^1.219.2",
+    "ts-node": "^10.9.2",
     "tsx": "^4.7.1"
   }
 }

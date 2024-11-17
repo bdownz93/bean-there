@@ -47,7 +47,7 @@ export function BeanList({ beans }: BeanListProps) {
                     by {typeof bean.roaster === 'string' ? bean.roaster : bean.roaster?.name}
                   </div>
                 </div>
-                {bean.rating !== null && (
+                {typeof bean.rating === 'number' && (
                   <div className="flex items-center">
                     <Star className="h-4 w-4 fill-current text-yellow-400" />
                     <span className="ml-1 text-sm font-medium">
@@ -78,7 +78,7 @@ export function BeanList({ beans }: BeanListProps) {
                     ))}
                   </div>
                 )}
-                {bean.price && (
+                {typeof bean.price === 'number' && (
                   <div className="text-lg font-semibold">
                     ${bean.price.toFixed(2)}
                   </div>

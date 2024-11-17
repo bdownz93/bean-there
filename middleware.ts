@@ -3,40 +3,56 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function middleware(req: NextRequest) {
-  try {
-    const res = NextResponse.next()
-    const supabase = createMiddlewareClient({ req, res })
+  const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req, res })
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+  // Get user and refresh session if needed
+  const { data: { session }, error } = await supabase.auth.getSession()
 
-    // If user is signed in and the current path is /login or /signup, redirect to /
-    if (session && (req.nextUrl.pathname === '/login' || req.nextUrl.pathname === '/signup')) {
-      return NextResponse.redirect(new URL('/', req.url))
-    }
+  // For development, log session state
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Middleware:', {
+      path: req.nextUrl.pathname,
+      hasSession: !!session,
+      userId: session?.user?.id,
+      error: error?.message,
+      cookies: req.cookies.getAll().map(c => c.name)
+    })
+  }
 
-    // If user is not signed in and trying to access protected routes, redirect to /login
-    if (!session && req.nextUrl.pathname === '/profile') {
+  // Handle auth routes
+  if (req.nextUrl.pathname.startsWith('/auth')) {
+    return res
+  }
+
+  // Protected routes
+  if (req.nextUrl.pathname === '/profile') {
+    if (!session?.user) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Redirecting to login: No session or user')
+      }
       return NextResponse.redirect(new URL('/login', req.url))
     }
-
-    return res
-  } catch (error) {
-    console.error('Middleware error:', error)
-    return NextResponse.next()
   }
+
+  // Auth page redirects
+  if (['/login', '/signup'].includes(req.nextUrl.pathname)) {
+    if (session?.user) {
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+  }
+
+  return res
 }
 
 export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }

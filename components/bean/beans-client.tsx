@@ -5,7 +5,7 @@ import { BeanList } from "@/components/bean/bean-list"
 import { BeanHeader } from "@/components/bean/bean-header"
 import { AddBeanForm } from "@/components/forms/add-bean-form"
 import { useQuery } from "@tanstack/react-query"
-import { getAllBeans } from "@/lib/supabase"
+import { getAllBeans, getAllRoasters } from "@/lib/supabase"
 import type { Bean, Roaster } from "@/lib/types"
 
 interface BeansClientProps {
@@ -13,7 +13,7 @@ interface BeansClientProps {
   roasters: Roaster[]
 }
 
-export function BeansClient({ initialBeans, roasters }: BeansClientProps) {
+export function BeansClient({ initialBeans, roasters: initialRoasters }: BeansClientProps) {
   const [searchQuery, setSearchQuery] = useState("")
 
   const { data: beans = initialBeans } = useQuery({
@@ -23,12 +23,24 @@ export function BeansClient({ initialBeans, roasters }: BeansClientProps) {
     staleTime: 1000 * 60 // 1 minute
   })
 
+  const { data: roasters = initialRoasters } = useQuery({
+    queryKey: ["roasters"],
+    queryFn: getAllRoasters,
+    initialData: initialRoasters,
+    staleTime: 1000 * 60 // 1 minute
+  })
+
   const filteredBeans = searchQuery
-    ? beans.filter(bean =>
-        bean.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bean.roaster.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bean.origin?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? beans.filter(bean => {
+        const searchTerms = searchQuery.toLowerCase()
+        return (
+          bean.name.toLowerCase().includes(searchTerms) ||
+          (typeof bean.roaster === 'string'
+            ? bean.roaster.toLowerCase().includes(searchTerms)
+            : bean.roaster?.name.toLowerCase().includes(searchTerms)) ||
+          bean.origin?.toLowerCase().includes(searchTerms)
+        )
+      })
     : beans
 
   return (
