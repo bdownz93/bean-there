@@ -1,115 +1,151 @@
-"use client"
+'use client'
 
-import { useQuery } from "@tanstack/react-query"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Star, User } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { supabase } from "@/lib/supabase"
-import Link from "next/link"
+import { useToast } from "@/components/ui/use-toast"
+
+interface Review {
+  id: string
+  created_at: string
+  bean_id: string
+  rating: number
+  content: string
+  brew_method?: string
+  flavor_notes?: string[]
+  photo_url?: string
+  aroma?: number
+  body?: number
+  acidity?: number
+  sweetness?: number
+  aftertaste?: number
+}
 
 interface ProfileReviewsProps {
   userId: string
 }
 
 export function ProfileReviews({ userId }: ProfileReviewsProps) {
-  const { data: reviews = [], isLoading } = useQuery({
-    queryKey: ['user-reviews', userId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('reviews')
-        .select(`
-          *,
-          beans (
-            id,
-            name,
-            roaster:roasters (
-              id,
-              name
-            )
-          )
-        `)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
 
-      if (error) throw error
-      return data
+  useEffect(() => {
+    async function loadReviews() {
+      try {
+        const { data, error } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        setReviews(data || [])
+      } catch (error) {
+        console.error('Error loading reviews:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load your reviews. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
     }
-  })
 
-  if (isLoading) {
+    loadReviews()
+  }, [userId, toast])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    )
+  }
+
+  if (reviews.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Reviews</CardTitle>
+          <CardTitle>Your Reviews</CardTitle>
+          <CardDescription>
+            You haven&apos;t written any reviews yet.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="animate-pulse space-y-6">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="space-y-2">
-                <div className="h-4 bg-muted rounded w-1/4" />
-                <div className="h-4 bg-muted rounded w-3/4" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
       </Card>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Reviews</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          {reviews.length === 0 ? (
-            <p className="text-muted-foreground">No reviews yet.</p>
-          ) : (
-            reviews.map((review) => (
-              <Link key={review.id} href={`/beans/${review.beans?.id}`}>
-                <div className="flex gap-4 p-4 rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">{review.beans?.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          by {review.beans?.roaster?.name}
-                        </p>
-                      </div>
-                      <div className="flex items-center">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="ml-1 text-sm">{review.rating}</span>
-                      </div>
-                    </div>
-                    <p className="mt-2 text-sm">{review.content}</p>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      {new Date(review.created_at).toLocaleDateString()}
-                    </div>
-                    {review.brew_method && (
-                      <div className="mt-2 text-sm">
-                        <span className="font-medium">Brew Method:</span> {review.brew_method}
-                      </div>
-                    )}
-                    {review.flavor_notes && review.flavor_notes.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {review.flavor_notes.map((note) => (
-                          <span
-                            key={note}
-                            className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                          >
-                            {note}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+    <div className="space-y-6">
+      {reviews.map(review => (
+        <Card key={review.id}>
+          <CardHeader>
+            <CardTitle>Bean Review</CardTitle>
+            <CardDescription>
+              {new Date(review.created_at).toLocaleDateString()}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <div className="font-medium">Rating</div>
+                <div>{review.rating} / 5</div>
+              </div>
+              {review.content && (
+                <div>
+                  <div className="font-medium">Review</div>
+                  <div>{review.content}</div>
                 </div>
-              </Link>
-            ))
-          )}
-        </div>
-      </CardContent>
-    </Card>
+              )}
+              {review.brew_method && (
+                <div>
+                  <div className="font-medium">Brew Method</div>
+                  <div>{review.brew_method}</div>
+                </div>
+              )}
+              {review.flavor_notes && review.flavor_notes.length > 0 && (
+                <div>
+                  <div className="font-medium">Flavor Notes</div>
+                  <div>{review.flavor_notes.join(', ')}</div>
+                </div>
+              )}
+              {review.aroma && (
+                <div>
+                  <div className="font-medium">Aroma</div>
+                  <div>{review.aroma} / 5</div>
+                </div>
+              )}
+              {review.body && (
+                <div>
+                  <div className="font-medium">Body</div>
+                  <div>{review.body} / 5</div>
+                </div>
+              )}
+              {review.acidity && (
+                <div>
+                  <div className="font-medium">Acidity</div>
+                  <div>{review.acidity} / 5</div>
+                </div>
+              )}
+              {review.sweetness && (
+                <div>
+                  <div className="font-medium">Sweetness</div>
+                  <div>{review.sweetness} / 5</div>
+                </div>
+              )}
+              {review.aftertaste && (
+                <div>
+                  <div className="font-medium">Aftertaste</div>
+                  <div>{review.aftertaste} / 5</div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   )
 }

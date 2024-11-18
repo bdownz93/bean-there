@@ -1,77 +1,67 @@
-import { Card, CardContent } from "@/components/ui/card"
-import { createClient } from "@/app/auth"
-import { ProfileTabs } from "@/components/profile/profile-tabs"
-import { redirect } from "next/navigation"
-import { supabaseServer } from "@/lib/supabase-server"
+'use client'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+import { Suspense } from "react"
+import { ProfileForm } from "@/components/profile/profile-form"
+import { ProfileReviews } from "@/components/profile/profile-reviews"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAuth } from "@/components/auth/auth-provider"
 
-export default async function ProfilePage() {
-  // Use server client for better session handling
-  const { data: { session }, error: sessionError } = await supabaseServer.auth.getSession()
+export default function ProfilePage() {
+  const { user, isLoading, isInitialized } = useAuth()
 
-  if (sessionError || !session?.user) {
-    console.error('Profile page session error:', sessionError)
-    return redirect('/login')
+  console.log('👤 Profile page state:', {
+    isLoading,
+    isInitialized,
+    hasUser: !!user,
+    userId: user?.id,
+    email: user?.email
+  })
+
+  // Only show loading state during initial load
+  if (!isInitialized) {
+    return (
+      <div className="container py-8">
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <div className="ml-2">Initializing...</div>
+        </div>
+      </div>
+    )
   }
 
-  // Get user profile and stats in a single query
-  const { data: profile, error: profileError } = await supabaseServer
-    .from('users')
-    .select(`
-      *,
-      user_stats (*)
-    `)
-    .eq('id', session.user.id)
-    .single()
-
-  if (profileError) {
-    console.error('Error fetching profile:', profileError)
-    return redirect('/login')
-  }
-
-  // If profile doesn't exist, create it
-  if (!profile) {
-    const { error: createError } = await supabaseServer
-      .from('users')
-      .insert([
-        {
-          id: session.user.id,
-          username: session.user.email?.split('@')[0] || 'user',
-          name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'User',
-          avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`,
-        }
-      ])
-
-    if (createError) {
-      console.error('Error creating profile:', createError)
-      return redirect('/login')
-    }
-
-    // Create initial user stats
-    await supabaseServer
-      .from('user_stats')
-      .insert([
-        {
-          user_id: session.user.id,
-          beans_tried: 0,
-          roasters_visited: 0,
-          total_reviews: 0,
-          unique_origins: 0,
-          roasters_created: 0,
-          experience_points: 0,
-          level: 1
-        }
-      ])
-
-    // Redirect to refresh the page and get the new profile
-    return redirect('/profile')
+  // If we're initialized but don't have a user, let auth provider handle redirect
+  if (!user) {
+    return null
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <ProfileTabs user={profile} stats={profile.user_stats} />
+    <div className="container py-8">
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="mb-8">
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="reviews">Reviews</TabsTrigger>
+        </TabsList>
+        <TabsContent value="profile">
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+              <div className="ml-2">Loading profile...</div>
+            </div>
+          }>
+            <ProfileForm user={user} />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="reviews">
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+              <div className="ml-2">Loading reviews...</div>
+            </div>
+          }>
+            <ProfileReviews userId={user.id} />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

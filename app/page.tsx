@@ -1,7 +1,7 @@
 import { BeanList } from "@/components/bean/bean-list"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { supabaseServer } from "@/lib/supabase-server"
+import { getServerSupabaseClient } from "@/lib/supabase-server"
 import Link from "next/link"
 import { Coffee, MapPin, Star, TrendingUp } from "lucide-react"
 import { RoasterCard } from "@/components/roaster/roaster-card"
@@ -12,17 +12,32 @@ export const revalidate = 0 // disable cache
 
 export default async function Home() {
   try {
+    const supabase = getServerSupabaseClient()
+    
     // Get featured beans and roasters
-    const [{ data: featuredBeans }, { data: roasters }] = await Promise.all([
-      supabaseServer
+    const [{ data: featuredBeans, error: beansError }, { data: roasters, error: roastersError }] = await Promise.all([
+      supabase
         .from('featured_beans')
         .select('*')
         .limit(6),
-      supabaseServer
+      supabase
         .from('roasters')
         .select('*')
         .limit(6)
     ])
+
+    if (beansError) {
+      console.error('Error loading featured beans:', beansError)
+      throw beansError
+    }
+    if (roastersError) {
+      console.error('Error loading roasters:', roastersError)
+      throw roastersError
+    }
+
+    if (!featuredBeans || !roasters) {
+      throw new Error('Failed to load data')
+    }
 
     return (
       <div className="min-h-screen -mt-14">

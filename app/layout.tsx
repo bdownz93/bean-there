@@ -4,8 +4,7 @@ import "./globals.css"
 import { Providers } from "@/components/providers"
 import { Navbar } from "@/components/navbar"
 import { Toaster } from "@/components/ui/toaster"
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { getServerSupabaseClient } from "@/lib/supabase-server"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -22,52 +21,37 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const cookieStore = cookies()
-  const supabase = createServerComponentClient({ cookies: () => cookieStore })
+  // Get the initial session
+  const supabase = getServerSupabaseClient()
+  const { data: { session }, error } = await supabase.auth.getSession()
 
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Root Layout:', {
-        hasSession: !!session,
-        userId: session?.user?.id
-      })
-    }
-
-    return (
-      <html lang="en" suppressHydrationWarning>
-        <body className={inter.className} suppressHydrationWarning>
-          <Providers initialSession={session}>
-            <div className="min-h-screen flex flex-col bg-background">
-              <Navbar />
-              <main className="flex-1">
-                {children}
-              </main>
-            </div>
-            <Toaster />
-          </Providers>
-        </body>
-      </html>
-    )
-  } catch (error) {
-    console.error('Root layout error:', error)
-    return (
-      <html lang="en" suppressHydrationWarning>
-        <body className={inter.className} suppressHydrationWarning>
-          <Providers initialSession={null}>
-            <div className="min-h-screen flex flex-col bg-background">
-              <Navbar />
-              <main className="flex-1">
-                {children}
-              </main>
-            </div>
-            <Toaster />
-          </Providers>
-        </body>
-      </html>
-    )
+  if (error) {
+    console.error('❌ Error getting initial session:', error)
   }
+
+  // Log session state for debugging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔐 Root Layout Session:', {
+      hasSession: !!session,
+      userId: session?.user?.id,
+      email: session?.user?.email,
+      error: error?.message
+    })
+  }
+
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning>
+        <Providers initialSession={session}>
+          <div className="min-h-screen flex flex-col bg-background">
+            <Navbar />
+            <main className="flex-1">
+              {children}
+            </main>
+          </div>
+          <Toaster />
+        </Providers>
+      </body>
+    </html>
+  )
 }

@@ -1,56 +1,82 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
 
-// Default to empty strings to prevent URL constructor errors
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Debug: Log connection details (remove in production)
-if (process.env.NODE_ENV === 'development') {
-  console.log('Initializing Supabase client with:', {
-    url: supabaseUrl,
-    hasAnonKey: !!supabaseAnonKey
-  })
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables')
 }
 
+// Create a single instance of the Supabase client
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true,
     persistSession: true,
+    autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'pkce',
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined
-  }
+    storageKey: 'bean-there-auth-token',
+    storage: {
+      getItem: (key) => {
+        if (typeof window === 'undefined') return null
+        return window.localStorage.getItem(key)
+      },
+      setItem: (key, value) => {
+        if (typeof window === 'undefined') return
+        window.localStorage.setItem(key, value)
+      },
+      removeItem: (key) => {
+        if (typeof window === 'undefined') return
+        window.localStorage.removeItem(key)
+      },
+    },
+  },
 })
 
-// Add error handling to test connection
-export async function testConnection() {
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Testing Supabase connection...')
-  }
-  try {
-    const { data, error } = await supabase
-      .from('roasters')
-      .select('count')
-      .single()
-    
-    if (error) {
-      console.error('Supabase connection error:', {
-        error,
-        message: error.message,
-        hint: error.hint,
-        details: error.details
+// Test connection in development
+if (process.env.NODE_ENV === 'development') {
+  const testConnection = async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession()
+      console.log('🔌 Supabase Connection Test:', {
+        connected: !error,
+        url: supabaseUrl,
+        hasSession: !!session,
+        userId: session?.user?.id,
+        error: error?.message
       })
-      return false
+    } catch (error) {
+      console.error('❌ Supabase Connection Error:', error)
     }
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Supabase connected successfully:', data)
-    }
-    return true
-  } catch (err) {
-    console.error('Unexpected error during connection test:', err)
-    return false
   }
+  testConnection()
+}
+
+// Auth helpers
+export async function signIn(email: string, password: string) {
+  const { data: { session }, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+  
+  if (error) throw error
+  return session
+}
+
+export async function signOut() {
+  const { error } = await supabase.auth.signOut()
+  if (error) throw error
+}
+
+export async function getSession() {
+  const { data: { session }, error } = await supabase.auth.getSession()
+  if (error) throw error
+  return session
+}
+
+export async function getUser() {
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error) throw error
+  return user
 }
 
 // Bean-related functions
@@ -70,61 +96,111 @@ export async function getFeaturedBeans() {
 }
 
 export async function getAllBeans() {
-  const { data, error } = await supabase
-    .from('beans')
-    .select(`
-      *,
-      roaster:roaster_id (
-        id,
-        name,
-        slug
-      ),
-      stats:bean_stats!bean_stats_id_fkey (
-        average_rating,
-        review_count
-      )
-    `)
-    .order('created_at', { ascending: false })
+  try {
+    // First, get the beans with roaster info
+    const { data: beans, error: beansError } = await supabase
+      .from('beans')
+      .select(`
+        *,
+        roaster:roaster_id (
+          id,
+          name,
+          slug
+        )
+      `)
+      .order('created_at', { ascending: false })
 
-  if (error) {
-    console.error('Error fetching all beans:', error)
+    if (beansError) {
+      console.error('Error fetching beans:', beansError)
+      return []
+    }
+
+    // Then, get the ratings separately
+    const { data: ratings, error: ratingsError } = await supabase
+      .from('reviews')
+      .select('bean_id, rating')
+
+    if (ratingsError) {
+      console.error('Error fetching ratings:', ratingsError)
+      return beans
+    }
+
+    // Calculate average ratings
+    const ratingsByBean = ratings.reduce((acc: { [key: string]: { sum: number; count: number } }, review) => {
+      if (!acc[review.bean_id]) {
+        acc[review.bean_id] = { sum: 0, count: 0 }
+      }
+      acc[review.bean_id].sum += review.rating
+      acc[review.bean_id].count++
+      return acc
+    }, {})
+
+    // Combine beans with their ratings
+    return beans.map(bean => ({
+      ...bean,
+      rating: ratingsByBean[bean.id] 
+        ? Number((ratingsByBean[bean.id].sum / ratingsByBean[bean.id].count).toFixed(1))
+        : null,
+      review_count: ratingsByBean[bean.id]?.count || 0
+    }))
+  } catch (error) {
+    console.error('Error in getAllBeans:', error)
     return []
   }
-
-  return data.map(bean => ({
-    ...bean,
-    rating: bean.stats?.average_rating || null,
-    review_count: bean.stats?.review_count || 0
-  }))
 }
 
 export async function getBeanById(id: string) {
-  const { data, error } = await supabase
-    .from('beans')
-    .select(`
-      *,
-      roaster:roaster_id (
-        id,
-        name,
-        slug
-      ),
-      stats:bean_stats!bean_stats_id_fkey (
-        average_rating,
-        review_count
-      )
-    `)
-    .eq('id', id)
-    .single()
+  try {
+    // Get the bean with roaster info
+    const { data: bean, error: beanError } = await supabase
+      .from('beans')
+      .select(`
+        *,
+        roaster:roaster_id (
+          id,
+          name,
+          slug
+        )
+      `)
+      .eq('id', id)
+      .single()
 
-  if (error) {
-    console.error('Error fetching bean by id:', error)
+    if (beanError) {
+      console.error('Error fetching bean:', beanError)
+      return null
+    }
+
+    // Get the ratings for this bean
+    const { data: ratings, error: ratingsError } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('bean_id', id)
+
+    if (ratingsError) {
+      console.error('Error fetching ratings:', ratingsError)
+      return bean
+    }
+
+    // Calculate average rating
+    if (ratings.length === 0) {
+      return {
+        ...bean,
+        rating: null,
+        review_count: 0
+      }
+    }
+
+    const sum = ratings.reduce((acc, review) => acc + review.rating, 0)
+    const average = Number((sum / ratings.length).toFixed(1))
+
+    return {
+      ...bean,
+      rating: average,
+      review_count: ratings.length
+    }
+  } catch (error) {
+    console.error('Error in getBeanById:', error)
     return null
-  }
-
-  return {
-    ...data,
-    rating: data.stats?.average_rating || null,
-    review_count: data.stats?.review_count || 0
   }
 }
 
