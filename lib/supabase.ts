@@ -296,10 +296,13 @@ export async function uploadReviewPhoto(file: File, userId: string): Promise<str
 }
 
 // Helper function for uploading roaster logos
-export async function uploadRoasterLogo(file: File, userId: string): Promise<string> {
+export async function uploadRoasterLogo(file: File): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Not authenticated")
+
   const { data, error } = await supabase.storage
     .from('roaster-logos')
-    .upload(`${userId}/${Date.now()}-${file.name}`, file)
+    .upload(`${user.id}/${Date.now()}-${file.name}`, file)
 
   if (error) {
     console.error('Error uploading roaster logo:', error)

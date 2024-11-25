@@ -143,6 +143,10 @@ otp_expiry = 3600
 [auth.email.smtp]
 sender_name = "Bean There"
 admin_email = "noreply@example.com"
+host = "localhost"
+port = 54325
+user = "fake_mail_user"
+pass = "fake_mail_password"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.

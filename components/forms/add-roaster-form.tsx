@@ -33,7 +33,15 @@ const roasterSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
   website_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-  phone: z.string().optional().or(z.literal(""))
+  phone: z.string().optional().or(z.literal("")),
+  email: z.string().email("Must be a valid email").optional().or(z.literal("")),
+  instagram: z.string().optional().or(z.literal("")),
+  social_media: z.object({
+    facebook: z.string().optional(),
+    twitter: z.string().optional(),
+    youtube: z.string().optional(),
+    linkedin: z.string().optional()
+  }).optional()
 })
 
 type RoasterFormValues = z.infer<typeof roasterSchema>
@@ -59,19 +67,6 @@ export function AddRoasterForm() {
     resolver: zodResolver(roasterSchema)
   })
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
-      setLogo(file)
-      setLogoPreview(URL.createObjectURL(file))
-    }
-  }
-
-  const removeLogo = () => {
-    setLogo(null)
-    setLogoPreview(null)
-  }
-
   const toggleSpecialty = (specialty: string) => {
     setSelectedSpecialties(prev =>
       prev.includes(specialty)
@@ -93,27 +88,19 @@ export function AddRoasterForm() {
     setIsSubmitting(true)
 
     try {
-      const userId = (await supabase.auth.getUser()).data.user?.id
-      if (!userId) throw new Error("User not found")
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const userId = user.id
 
       let logoUrl = null
       if (logo) {
-        try {
-          logoUrl = await uploadRoasterLogo(logo, userId)
-        } catch (error) {
-          console.error('Error uploading logo:', error)
-          throw new Error('Failed to upload logo')
-        }
+        logoUrl = await uploadRoasterLogo(logo)
       }
 
-      // Create a URL-friendly slug from the name
-      const slug = data.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
+      const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
 
       const { data: roaster, error } = await supabase
-        .from('roasters')
+        .from("roasters")
         .insert([
           {
             name: data.name,
@@ -121,6 +108,9 @@ export function AddRoasterForm() {
             description: data.description,
             website_url: data.website_url || null,
             phone: data.phone || null,
+            email: data.email || null,
+            instagram: data.instagram || null,
+            social_media: data.social_media || {},
             location: selectedLocation.name,
             coordinates: {
               lat: selectedLocation.lat,
@@ -128,8 +118,7 @@ export function AddRoasterForm() {
             },
             specialties: selectedSpecialties,
             created_by: userId,
-            logo_url: logoUrl,
-            rating: 0
+            logo_url: logoUrl
           }
         ])
         .select()
@@ -137,8 +126,8 @@ export function AddRoasterForm() {
 
       if (error) throw error
 
-      await queryClient.invalidateQueries({ queryKey: ['roasters'] })
-      
+      await queryClient.invalidateQueries({ queryKey: ["roasters"] })
+
       toast({
         title: "Success",
         description: "Roaster added successfully"
@@ -153,10 +142,10 @@ export function AddRoasterForm() {
 
       router.push(`/roasters/${roaster.slug}`)
     } catch (error) {
-      console.error('Error adding roaster:', error)
+      console.error("Error:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add roaster",
+        description: "Something went wrong",
         variant: "destructive"
       })
     } finally {
@@ -176,62 +165,67 @@ export function AddRoasterForm() {
         <DialogHeader>
           <DialogTitle>Add New Roaster</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pr-6">
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" {...register("name")} />
+            <Label>Logo</Label>
+            <div className="flex items-center gap-4">
+              {logoPreview ? (
+                <div className="relative h-20 w-20">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logoPreview}
+                    alt="Logo preview"
+                    className="h-full w-full object-cover"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="absolute -right-2 -top-2 h-6 w-6 rounded-full"
+                    onClick={() => {
+                      setLogo(null)
+                      setLogoPreview(null)
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed">
+                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                </div>
+              )}
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    setLogo(file)
+                    const reader = new FileReader()
+                    reader.onloadend = () => {
+                      setLogoPreview(reader.result as string)
+                    }
+                    reader.readAsDataURL(file)
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Name</Label>
+            <Input
+              id="name"
+              {...register("name")}
+            />
             {errors.name && (
               <p className="text-sm text-destructive">{errors.name.message}</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label>Logo</Label>
-            {logoPreview ? (
-              <div className="relative mt-2 w-32 h-32 rounded-lg overflow-hidden">
-                <img
-                  src={logoPreview}
-                  alt="Logo preview"
-                  className="object-cover w-full h-full"
-                />
-                <button
-                  type="button"
-                  onClick={removeLogo}
-                  className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="mt-2">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoChange}
-                  className="hidden"
-                  id="logo-upload"
-                />
-                <label
-                  htmlFor="logo-upload"
-                  className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent"
-                >
-                  <ImageIcon className="h-4 w-4" />
-                  <span>Upload Logo</span>
-                </label>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label>Location</Label>
-            <LocationSearch
-              onSelect={(location) => setSelectedLocation(location)}
-              selectedLocation={selectedLocation}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label>Description</Label>
             <Textarea
               id="description"
               {...register("description")}
@@ -243,11 +237,15 @@ export function AddRoasterForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="website_url">Website</Label>
+            <Label>Location</Label>
+            <LocationSearch onSelect={setSelectedLocation} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Website URL</Label>
             <Input
               id="website_url"
               type="url"
-              placeholder="https://example.com"
               {...register("website_url")}
             />
             {errors.website_url && (
@@ -256,15 +254,37 @@ export function AddRoasterForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone">Phone</Label>
+            <Label>Phone</Label>
             <Input
               id="phone"
               type="tel"
-              placeholder="+1 (555) 123-4567"
               {...register("phone")}
             />
             {errors.phone && (
               <p className="text-sm text-destructive">{errors.phone.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Email</Label>
+            <Input
+              id="email"
+              type="email"
+              {...register("email")}
+            />
+            {errors.email && (
+              <p className="text-sm text-destructive">{errors.email.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Instagram</Label>
+            <Input
+              id="instagram"
+              {...register("instagram")}
+            />
+            {errors.instagram && (
+              <p className="text-sm text-destructive">{errors.instagram.message}</p>
             )}
           </div>
 
@@ -281,6 +301,52 @@ export function AddRoasterForm() {
                   {specialty}
                 </Badge>
               ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Social Media</Label>
+            <div className="space-y-2">
+              <div className="space-y-2">
+                <Label htmlFor="facebook">Facebook</Label>
+                <Input
+                  id="facebook"
+                  {...register("social_media.facebook")}
+                />
+                {errors.social_media?.facebook && (
+                  <p className="text-sm text-destructive">{errors.social_media.facebook.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="twitter">Twitter</Label>
+                <Input
+                  id="twitter"
+                  {...register("social_media.twitter")}
+                />
+                {errors.social_media?.twitter && (
+                  <p className="text-sm text-destructive">{errors.social_media.twitter.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="youtube">YouTube</Label>
+                <Input
+                  id="youtube"
+                  {...register("social_media.youtube")}
+                />
+                {errors.social_media?.youtube && (
+                  <p className="text-sm text-destructive">{errors.social_media.youtube.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="linkedin">LinkedIn</Label>
+                <Input
+                  id="linkedin"
+                  {...register("social_media.linkedin")}
+                />
+                {errors.social_media?.linkedin && (
+                  <p className="text-sm text-destructive">{errors.social_media.linkedin.message}</p>
+                )}
+              </div>
             </div>
           </div>
 

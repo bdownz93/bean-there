@@ -1,0 +1,13 @@
+# Email auth configuration
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+# SMTP configuration
+[auth.email.smtp]
+host = "localhost"
+port = 2500
+user = "fake_mail_user"
+password = "fake_mail_password"
+admin_email = "admin@example.com"

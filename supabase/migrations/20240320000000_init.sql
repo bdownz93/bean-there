@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS roasters (
     slug TEXT UNIQUE NOT NULL,
     description TEXT,
     location TEXT,
-    website TEXT,
+    website_url TEXT,
     logo_url TEXT,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -136,6 +136,9 @@ CREATE POLICY "Users are viewable by everyone" ON users
 
 CREATE POLICY "Users can update own profile" ON users
     FOR UPDATE USING (auth.uid() = id);
+
+CREATE POLICY "System can create users" ON users
+    FOR INSERT WITH CHECK (true);
 
 -- User stats policies
 CREATE POLICY "User stats are viewable by everyone" ON user_stats

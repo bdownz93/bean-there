@@ -67,7 +67,11 @@ export default async function Home() {
                   </Button>
                 </Link>
                 <Link href="/map">
-                  <Button size="lg" variant="outline" className="gap-2">
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className="gap-2 bg-background hover:bg-background/90 border-background text-foreground"
+                  >
                     <MapPin className="h-5 w-5" />
                     Find Roasters
                   </Button>

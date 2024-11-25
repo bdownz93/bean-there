@@ -1,228 +1,150 @@
-"use client"
+'use client'
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { useRouter } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ImageIcon, Star, X } from "lucide-react"
-import { FlavorNotes } from "./flavor-notes"
-
-const BREW_METHODS = [
-  "Pour Over", "Espresso", "French Press", "AeroPress", 
-  "Drip", "Cold Brew", "Moka Pot", "Chemex"
-]
-
-const GRIND_SIZES = [
-  "Extra Fine", "Fine", "Medium-Fine", "Medium", 
-  "Medium-Coarse", "Coarse"
-]
-
-const FLAVOR_NOTES = [
-  // Fruity
-  "Apple", "Berries", "Blackberry", "Blueberry", "Cherry", "Citrus", "Grape", 
-  "Lemon", "Orange", "Peach", "Pear", "Plum", "Raspberry", "Strawberry",
-  
-  // Sweet
-  "Brown Sugar", "Caramel", "Chocolate", "Cocoa", "Honey", "Maple", "Molasses", 
-  "Toffee", "Vanilla",
-  
-  // Nutty/Roasted
-  "Almond", "Hazelnut", "Peanut", "Pecan", "Roasted", "Toasted", "Walnut",
-  
-  // Spicy
-  "Cinnamon", "Clove", "Nutmeg", "Pepper", "Spices",
-  
-  // Floral/Herbal
-  "Floral", "Jasmine", "Lavender", "Rose", "Tea-like", "Herbal",
-  
-  // Other
-  "Balanced", "Clean", "Complex", "Crisp", "Earthy", "Smooth", "Wine-like", 
-  "Winey", "Woody"
-]
+import { useToast } from "@/components/ui/use-toast"
+import { useAuth } from "@/components/auth/auth-provider"
+import { supabase } from "@/lib/supabase"
 
 interface ReviewFormProps {
-  onSubmit: (data: {
-    rating: number
-    content: string
-    brewMethod: string
-    grindSize: string
-    selectedFlavors: string[]
-    photo: File | null
-    aroma: number
-    body: number
-    acidity: number
-    sweetness: number
-    aftertaste: number
-  }) => void
-  onCancel: () => void
-  isSubmitting?: boolean
+  beanId: string
+  onSuccess?: () => void
 }
 
-export function ReviewForm({ onSubmit, onCancel, isSubmitting }: ReviewFormProps) {
-  const [rating, setRating] = useState(5)
-  const [content, setContent] = useState("")
-  const [brewMethod, setBrewMethod] = useState("")
-  const [grindSize, setGrindSize] = useState("")
-  const [selectedFlavors, setSelectedFlavors] = useState<string[]>([])
-  const [photo, setPhoto] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string>("")
-  
-  const [aroma, setAroma] = useState(50)
-  const [body, setBody] = useState(50)
-  const [acidity, setAcidity] = useState(50)
-  const [sweetness, setSweetness] = useState(50)
-  const [aftertaste, setAftertaste] = useState(50)
+export function ReviewForm({ beanId, onSuccess }: ReviewFormProps) {
+  const router = useRouter()
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    rating: 5,
+    content: "",
+    brew_method: "",
+    flavor_notes: [] as string[],
+    aroma: 5,
+    body: 5,
+    acidity: 5,
+    sweetness: 5,
+    aftertaste: 5,
+  })
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB')
-      return
-    }
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert('Only image files are allowed')
-      return
-    }
-
-    setPhoto(file)
-    setPhotoPreview(URL.createObjectURL(file))
-  }
-
-  const toggleFlavorNote = (flavor: string) => {
-    setSelectedFlavors(prev =>
-      prev.includes(flavor)
-        ? prev.filter(f => f !== flavor)
-        : [...prev, flavor]
-    )
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit({
-      rating,
-      content,
-      brewMethod,
-      grindSize,
-      selectedFlavors,
-      photo,
-      // Convert slider values (0-100) to 1-5 scale
-      aroma: Math.round((aroma / 100) * 4) + 1,
-      body: Math.round((body / 100) * 4) + 1,
-      acidity: Math.round((acidity / 100) * 4) + 1,
-      sweetness: Math.round((sweetness / 100) * 4) + 1,
-      aftertaste: Math.round((aftertaste / 100) * 4) + 1
-    })
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to submit a review.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      // Convert decimal rating to integer (1-5)
+      const integerRating = Math.round(formData.rating)
+      
+      const { data, error } = await supabase
+        .from('reviews')
+        .insert([{
+          ...formData,
+          rating: integerRating,
+          user_id: user.id,
+          bean_id: beanId,
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      toast({
+        title: "Success",
+        description: "Review added successfully!",
+      })
+
+      onSuccess?.()
+    } catch (error) {
+      console.error('Error adding review:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add review. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
+
+  const handleChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const brewMethods = [
+    "Pour Over",
+    "French Press",
+    "Espresso",
+    "Aeropress",
+    "Cold Brew",
+    "Drip",
+    "Other",
+  ]
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4">
-        <div>
-          <Label>Overall Rating</Label>
-          <div className="flex gap-1">
-            {[1, 2, 3, 4, 5].map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setRating(value)}
-                className="text-yellow-400 hover:scale-110 transition-transform"
-              >
-                <Star
-                  className={`h-8 w-8 ${
-                    value <= rating ? "fill-current" : "fill-none"
-                  }`}
-                />
-              </button>
-            ))}
+    <Card>
+      <CardHeader>
+        <CardTitle>Add Review</CardTitle>
+        <CardDescription>
+          Share your thoughts on this coffee
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label>Overall Rating</Label>
+            <Slider
+              value={[formData.rating]}
+              onValueChange={([value]) => handleChange('rating', Math.round(value))}
+              min={1}
+              max={5}
+              step={1}
+              className="w-full"
+            />
+            <div className="text-sm text-muted-foreground text-center">
+              {formData.rating} / 5
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-4">
-          <div>
-            <Label>Aroma</Label>
-            <Slider value={[aroma]} onValueChange={([v]) => setAroma(v)} max={100} step={1} />
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-              <span>5</span>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="content">Review</Label>
+            <Textarea
+              id="content"
+              value={formData.content}
+              onChange={(e) => handleChange('content', e.target.value)}
+              required
+              placeholder="What did you think of this coffee?"
+            />
           </div>
-          <div>
-            <Label>Body</Label>
-            <Slider value={[body]} onValueChange={([v]) => setBody(v)} max={100} step={1} />
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-              <span>5</span>
-            </div>
-          </div>
-          <div>
-            <Label>Acidity</Label>
-            <Slider value={[acidity]} onValueChange={([v]) => setAcidity(v)} max={100} step={1} />
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-              <span>5</span>
-            </div>
-          </div>
-          <div>
-            <Label>Sweetness</Label>
-            <Slider value={[sweetness]} onValueChange={([v]) => setSweetness(v)} max={100} step={1} />
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-              <span>5</span>
-            </div>
-          </div>
-          <div>
-            <Label>Aftertaste</Label>
-            <Slider value={[aftertaste]} onValueChange={([v]) => setAftertaste(v)} max={100} step={1} />
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-              <span>5</span>
-            </div>
-          </div>
-        </div>
 
-        <div>
-          <Label>Your Review</Label>
-          <Textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Share your thoughts about this coffee..."
-            className="min-h-[100px]"
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Brew Method</Label>
-            <Select value={brewMethod} onValueChange={setBrewMethod}>
+          <div className="space-y-2">
+            <Label htmlFor="brew_method">Brew Method</Label>
+            <Select
+              value={formData.brew_method}
+              onValueChange={(value) => handleChange('brew_method', value)}
+              required
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Select method" />
+                <SelectValue placeholder="How did you brew it?" />
               </SelectTrigger>
               <SelectContent>
-                {BREW_METHODS.map((method) => (
+                {brewMethods.map((method) => (
                   <SelectItem key={method} value={method}>
                     {method}
                   </SelectItem>
@@ -231,95 +153,11 @@ export function ReviewForm({ onSubmit, onCancel, isSubmitting }: ReviewFormProps
             </Select>
           </div>
 
-          <div>
-            <Label>Grind Size</Label>
-            <Select value={grindSize} onValueChange={setGrindSize}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select size" />
-              </SelectTrigger>
-              <SelectContent>
-                {GRIND_SIZES.map((size) => (
-                  <SelectItem key={size} value={size}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div>
-          <Label>Flavor Notes</Label>
-          <div className="mt-2">
-            <FlavorNotes
-              notes={FLAVOR_NOTES}
-              selectedNotes={selectedFlavors}
-              onToggle={toggleFlavorNote}
-              limit={12}
-            />
-          </div>
-        </div>
-
-        <div>
-          <Label>Add Photo</Label>
-          <div className="mt-2">
-            <Input
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoChange}
-              className="hidden"
-              id="photo-upload"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => document.getElementById('photo-upload')?.click()}
-            >
-              <ImageIcon className="mr-2 h-4 w-4" />
-              Upload Photo
-            </Button>
-          </div>
-          {photoPreview && (
-            <div className="mt-4 relative">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="absolute top-2 right-2"
-                onClick={() => {
-                  setPhoto(null)
-                  setPhotoPreview("")
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <img
-                src={photoPreview}
-                alt="Preview"
-                className="max-h-48 rounded-lg object-cover"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="flex gap-4">
-        <Button 
-          type="submit"
-          disabled={isSubmitting || !content.trim()}
-          className="flex-1"
-        >
-          {isSubmitting ? "Submitting..." : "Submit Review"}
-        </Button>
-        <Button 
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          disabled={isSubmitting}
-        >
-          Cancel
-        </Button>
-      </div>
-    </form>
+          <Button type="submit" disabled={loading}>
+            {loading ? "Submitting..." : "Submit Review"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   )
 }

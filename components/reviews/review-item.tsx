@@ -46,12 +46,17 @@ export function ReviewItem({ review }: ReviewItemProps) {
                     <Star
                       key={star}
                       className={`h-4 w-4 ${
-                        star <= review.rating
+                        star <= (review.rating / 2)
                           ? "fill-yellow-400 text-yellow-400"
+                          : star - 0.5 <= (review.rating / 2)
+                          ? "fill-yellow-400/50 text-yellow-400"
                           : "text-gray-300"
                       }`}
                     />
                   ))}
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    {(review.rating / 2).toFixed(1)}
+                  </span>
                 </div>
               </div>
 

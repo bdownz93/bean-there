@@ -1,50 +1,46 @@
-import { BeansClient } from "@/components/bean/beans-client"
-import { getAllRoasters } from "@/lib/supabase"
+import { BeansPageClient } from "@/components/beans/beans-page-client"
+import { getServerSupabaseClient } from "@/lib/supabase-server"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getServerSupabaseClient } from "@/lib/supabase-server"
 
 export default async function BeansPage() {
   try {
     const supabase = getServerSupabaseClient()
-    
-    const [{ data: beans, error: beansError }, roasters] = await Promise.all([
+
+    const [beansResult, roastersResult] = await Promise.all([
       supabase
         .from('beans')
-        .select(`
-          *,
-          roaster:roaster_id (
-            id,
-            name,
-            slug
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false }),
-      getAllRoasters()
+      supabase
+        .from('roasters')
+        .select('*')
+        .order('name')
     ])
 
-    if (beansError) {
-      console.error("Error loading beans:", beansError)
-      throw beansError
+    if (!beansResult.data || !roastersResult.data) {
+      throw new Error('Failed to fetch data')
     }
 
-    if (!beans || !roasters) {
-      throw new Error('Failed to load data')
-    }
-
-    return <BeansClient initialBeans={beans} roasters={roasters} />
-  } catch (error) {
-    console.error("Error loading beans page:", error)
     return (
-      <div className="container mx-auto px-4 py-8">
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">
-              Unable to load beans. Please try again later.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="container py-6">
+        <BeansPageClient
+          initialBeans={beansResult.data}
+          roasters={roastersResult.data}
+        />
       </div>
+    )
+  } catch (error) {
+    console.error('Error:', error)
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-[250px]" />
+            <Skeleton className="h-4 w-[200px]" />
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 }
