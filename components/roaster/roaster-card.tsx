@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Star, MapPin, Check, Coffee } from "lucide-react"
@@ -25,8 +26,17 @@ export function RoasterCard({ roaster }: RoasterCardProps) {
     <Card className="hover:bg-accent hover:text-accent-foreground transition-colors">
       <CardHeader>
         <div className="flex items-start gap-4">
-          <div className="flex items-center justify-center w-16 h-16 rounded-lg bg-primary/10">
-            <Coffee className="h-8 w-8 text-primary" />
+          <div className="relative flex items-center justify-center w-16 h-16 rounded-lg bg-primary/10 overflow-hidden">
+            {roaster.logo_url ? (
+              <Image
+                src={roaster.logo_url}
+                alt={`${roaster.name} logo`}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <Coffee className="h-8 w-8 text-primary" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">

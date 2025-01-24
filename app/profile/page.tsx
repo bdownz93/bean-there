@@ -1,46 +1,67 @@
-"use client"
+'use client'
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense } from "react"
+import { ProfileForm } from "@/components/profile/profile-form"
+import { ProfileReviews } from "@/components/profile/profile-reviews"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/components/auth/auth-provider"
-import { ProfileTabs } from "@/components/profile/profile-tabs"
-import { Card, CardContent } from "@/components/ui/card"
 
 export default function ProfilePage() {
-  const { user, isLoading } = useAuth()
-  const router = useRouter()
+  const { user, isLoading, isInitialized } = useAuth()
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login')
-    }
-  }, [user, isLoading, router])
+  console.log('👤 Profile page state:', {
+    isLoading,
+    isInitialized,
+    hasUser: !!user,
+    userId: user?.id,
+    email: user?.email
+  })
 
-  if (isLoading) {
+  // Only show loading state during initial load
+  if (!isInitialized) {
     return (
-      <div className="container max-w-4xl py-8 px-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="animate-pulse space-y-4">
-              <div className="h-20 w-20 rounded-full bg-muted" />
-              <div className="space-y-2">
-                <div className="h-4 bg-muted rounded w-1/4" />
-                <div className="h-4 bg-muted rounded w-1/3" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="container py-8">
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <div className="ml-2">Initializing...</div>
+        </div>
       </div>
     )
   }
 
+  // If we're initialized but don't have a user, let auth provider handle redirect
   if (!user) {
     return null
   }
 
   return (
-    <div className="container max-w-4xl py-8 px-4">
-      <ProfileTabs userId={user.id} />
+    <div className="container py-8">
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="mb-8">
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="reviews">Reviews</TabsTrigger>
+        </TabsList>
+        <TabsContent value="profile">
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+              <div className="ml-2">Loading profile...</div>
+            </div>
+          }>
+            <ProfileForm user={user} />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="reviews">
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+              <div className="ml-2">Loading reviews...</div>
+            </div>
+          }>
+            <ProfileReviews userId={user.id} />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -1,77 +1,197 @@
-<<<<<<< Updated upstream
 import { BeanList } from "@/components/bean/bean-list"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { getFeaturedBeans, getAllRoasters, testConnection } from "@/lib/supabase"
+import { getServerSupabaseClient } from "@/lib/supabase-server"
 import Link from "next/link"
 import { Coffee, MapPin, Star, TrendingUp } from "lucide-react"
 import { RoasterCard } from "@/components/roaster/roaster-card"
 import { RecentReviewsWrapper } from "@/components/reviews/recent-reviews-wrapper"
 import { ReviewCount } from "@/components/stats/review-count"
 
+export const revalidate = 0 // disable cache
+
 export default async function Home() {
-  // Test the connection
-  await testConnection()
-
   try {
+    const supabase = getServerSupabaseClient()
+    
     // Get featured beans and roasters
-    const [featuredBeans, roasters] = await Promise.all([
-      getFeaturedBeans(),
-      getAllRoasters()
+    const [{ data: featuredBeans, error: beansError }, { data: roasters, error: roastersError }] = await Promise.all([
+      supabase
+        .from('featured_beans')
+        .select('*')
+        .limit(6),
+      supabase
+        .from('roasters')
+        .select('*')
+        .limit(6)
     ])
-=======
-import DeployButton from "../components/DeployButton";
-import AuthButton from "../components/AuthButton";
-import { createClient } from "@/utils/supabase/server";
-import ConnectSupabaseSteps from "@/components/tutorial/ConnectSupabaseSteps";
-import SignUpUserSteps from "@/components/tutorial/SignUpUserSteps";
-import Header from "@/components/Header";
 
-export default async function Index() {
-  const canInitSupabaseClient = () => {
-    // This function is just for the interactive tutorial.
-    // Feel free to remove it once you have Supabase connected.
-    try {
-      createClient();
-      return true;
-    } catch (e) {
-      return false;
+    if (beansError) {
+      console.error('Error loading featured beans:', beansError)
+      throw beansError
     }
-  };
->>>>>>> Stashed changes
+    if (roastersError) {
+      console.error('Error loading roasters:', roastersError)
+      throw roastersError
+    }
 
-  const isSupabaseConnected = canInitSupabaseClient();
+    if (!featuredBeans || !roasters) {
+      throw new Error('Failed to load data')
+    }
 
-  return (
-    <div className="flex-1 w-full flex flex-col gap-20 items-center">
-      <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
-        <div className="w-full max-w-4xl flex justify-between items-center p-3 text-sm">
-          <DeployButton />
-          {isSupabaseConnected && <AuthButton />}
-        </div>
-      </nav>
+    return (
+      <div className="min-h-screen -mt-14">
+        {/* Hero Section */}
+        <section className="relative bg-black text-white mb-12">
+          <div 
+            className="absolute inset-0 z-0 opacity-50"
+            style={{
+              backgroundImage: "url('https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=1200&auto=format&fit=crop&q=60')",
+              backgroundSize: "cover",
+              backgroundPosition: "center"
+            }}
+          />
+          <div className="relative z-10 container mx-auto px-4 py-32 mt-14 max-w-7xl">
+            <div className="max-w-2xl space-y-6">
+              <h1 className="text-5xl font-bold tracking-tight">
+                Discover Your Perfect Cup
+              </h1>
+              <p className="text-xl text-gray-300">
+                Explore exceptional coffee beans from the world&apos;s finest roasters
+              </p>
+              <div className="flex gap-4">
+                <Link href="/beans">
+                  <Button size="lg" className="gap-2">
+                    <Coffee className="h-5 w-5" />
+                    Explore Beans
+                  </Button>
+                </Link>
+                <Link href="/map">
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className="gap-2 bg-background hover:bg-background/90 border-background text-foreground"
+                  >
+                    <MapPin className="h-5 w-5" />
+                    Find Roasters
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
 
-      <div className="animate-in flex-1 flex flex-col gap-20 opacity-0 max-w-4xl px-3">
-        <Header />
-        <main className="flex-1 flex flex-col gap-6">
-          <h2 className="font-bold text-4xl mb-4">Next steps</h2>
-          {isSupabaseConnected ? <SignUpUserSteps /> : <ConnectSupabaseSteps />}
-        </main>
+        {/* Stats Section */}
+        <section className="container mx-auto px-4 mb-12 max-w-7xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <Coffee className="h-8 w-8" />
+                  <div>
+                    <div className="text-2xl font-bold">
+                      <ReviewCount />
+                    </div>
+                    <div className="text-muted-foreground">Reviews</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <Star className="h-8 w-8" />
+                  <div>
+                    <div className="text-2xl font-bold">
+                      {featuredBeans?.length || 0}
+                    </div>
+                    <div className="text-muted-foreground">Featured Beans</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <MapPin className="h-8 w-8" />
+                  <div>
+                    <div className="text-2xl font-bold">
+                      {roasters?.length || 0}
+                    </div>
+                    <div className="text-muted-foreground">Roasters</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <TrendingUp className="h-8 w-8" />
+                  <div>
+                    <div className="text-2xl font-bold">
+                      {featuredBeans?.reduce((acc, bean) => acc + (bean.rating || 0), 0) / featuredBeans?.length || 0}
+                    </div>
+                    <div className="text-muted-foreground">Avg Rating</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        {/* Featured Beans Section */}
+        <section className="container mx-auto px-4 mb-12 max-w-7xl">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Featured Beans</h2>
+            <Link href="/beans">
+              <Button variant="ghost">View All</Button>
+            </Link>
+          </div>
+          <BeanList beans={featuredBeans || []} />
+        </section>
+
+        {/* Featured Roasters Section */}
+        <section className="container mx-auto px-4 mb-12 max-w-7xl">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Featured Roasters</h2>
+            <Link href="/roasters">
+              <Button variant="ghost">View All</Button>
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {roasters?.map((roaster) => (
+              <RoasterCard key={roaster.id} roaster={roaster} />
+            ))}
+          </div>
+        </section>
+
+        {/* Recent Reviews Section */}
+        <section className="container mx-auto px-4 mb-12 max-w-7xl">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Recent Reviews</h2>
+            <Link href="/community">
+              <Button variant="ghost">View All</Button>
+            </Link>
+          </div>
+          <RecentReviewsWrapper />
+        </section>
       </div>
-
-      <footer className="w-full border-t border-t-foreground/10 p-8 flex justify-center text-center text-xs">
-        <p>
-          Powered by{" "}
-          <a
-            href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
-            target="_blank"
-            className="font-bold hover:underline"
-            rel="noreferrer"
-          >
-            Supabase
-          </a>
-        </p>
-      </footer>
-    </div>
-  );
+    )
+  } catch (error) {
+    console.error('Error loading home page:', error)
+    return (
+      <div className="min-h-screen container mx-auto px-4 py-8">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-center text-muted-foreground">
+              Unable to load content. Please try again later.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 }

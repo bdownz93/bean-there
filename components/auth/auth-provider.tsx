@@ -1,230 +1,208 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
-import { User } from "@supabase/auth-helpers-nextjs"
-import { useRouter } from "next/navigation"
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
+import { User } from "@supabase/supabase-js"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase"
 
-interface AuthContextType {
+interface AuthState {
   user: User | null
   isLoading: boolean
-  signUp: (email: string, password: string, name: string, username: string) => Promise<void>
+  isInitialized: boolean
+}
+
+interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<void>
-  signInWithGoogle: () => Promise<void>
-  signInWithGithub: () => Promise<void>
   signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    isLoading: true,
+    isInitialized: false
+  })
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
+  const redirectInProgress = useRef(false)
 
+  const handleRedirect = useCallback((user: User | null) => {
+    if (redirectInProgress.current) {
+      console.log('🚫 Redirect already in progress, skipping...')
+      return
+    }
+
+    const protectedRoutes = ['/profile', '/beans/new', '/roasters/new']
+    const authRoutes = ['/login', '/signup']
+    const isProtectedRoute = protectedRoutes.some(route => pathname?.startsWith(route))
+    const isAuthRoute = authRoutes.some(route => pathname?.startsWith(route))
+    const redirect = searchParams.get('redirect')
+
+    console.log('🚦 Navigation state:', {
+      pathname,
+      isProtectedRoute,
+      isAuthRoute,
+      hasUser: !!user,
+      userId: user?.id,
+      redirect,
+      isInitialized: state.isInitialized
+    })
+
+    if (!state.isInitialized) {
+      console.log('⏳ Waiting for auth initialization...')
+      return
+    }
+
+    try {
+      redirectInProgress.current = true
+
+      if (user) {
+        if (isAuthRoute) {
+          if (redirect) {
+            console.log('📍 Auth route redirect:', redirect)
+            router.push(redirect)
+          } else {
+            router.push('/')
+          }
+        }
+      } else {
+        if (isProtectedRoute) {
+          const loginUrl = `/login?redirect=${pathname}`
+          console.log('🔒 Protected route redirect:', loginUrl)
+          router.push(loginUrl)
+        }
+      }
+    } finally {
+      // Reset redirect flag after a short delay
+      setTimeout(() => {
+        redirectInProgress.current = false
+      }, 100)
+    }
+  }, [pathname, router, searchParams, state.isInitialized])
+
+  const updateAuthState = useCallback((user: User | null, isLoading = false) => {
+    setState(prev => {
+      // Don't update if nothing changed
+      if (
+        prev.user?.id === user?.id && 
+        prev.isLoading === isLoading && 
+        prev.isInitialized
+      ) {
+        return prev
+      }
+
+      const newState = {
+        user,
+        isLoading,
+        isInitialized: true
+      }
+
+      console.log('🔄 Auth state update:', {
+        prevState: {
+          hasUser: !!prev.user,
+          userId: prev.user?.id,
+          isLoading: prev.isLoading,
+          isInitialized: prev.isInitialized
+        },
+        newState: {
+          hasUser: !!user,
+          userId: user?.id,
+          isLoading,
+          isInitialized: true
+        }
+      })
+
+      return newState
+    })
+  }, [])
+
+  // Initialize auth state
   useEffect(() => {
+    let mounted = true
+
     const initializeAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        setUser(session?.user ?? null)
+        console.log('🔐 Initial session:', {
+          hasSession: !!session,
+          userId: session?.user?.id,
+          email: session?.user?.email,
+          pathname
+        })
 
-        if (session?.user) {
-          // Ensure user profile exists
-          const { data: existingProfile } = await supabase
-            .from('users')
-            .select('id')
-            .eq('id', session.user.id)
-            .single()
-
-          if (!existingProfile) {
-            // Create profile if it doesn't exist
-            await supabase.from('users').insert([
-              {
-                id: session.user.id,
-                username: session.user.email?.split('@')[0],
-                name: session.user.user_metadata.name || session.user.email?.split('@')[0],
-                avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              }
-            ])
-
-            // Create initial user stats
-            await supabase.from('user_stats').insert([
-              {
-                user_id: session.user.id,
-                beans_tried: 0,
-                roasters_visited: 0,
-                total_reviews: 0,
-                unique_origins: 0,
-                roasters_created: 0,
-                experience_points: 0,
-                level: 1,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              }
-            ])
+        if (mounted) {
+          updateAuthState(session?.user ?? null, false)
+          // Only handle redirect on initial auth if we're on a protected route
+          const protectedRoutes = ['/profile', '/beans/new', '/roasters/new']
+          const isProtectedRoute = protectedRoutes.some(route => pathname?.startsWith(route))
+          if (isProtectedRoute) {
+            handleRedirect(session?.user ?? null)
           }
         }
       } catch (error) {
-        console.error("Auth initialization error:", error)
-      } finally {
-        setIsLoading(false)
+        console.error('❌ Auth initialization error:', error)
+        if (mounted) {
+          updateAuthState(null, false)
+        }
       }
     }
 
     initializeAuth()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
-      
-      if (event === 'SIGNED_IN') {
-        try {
-          if (session?.user) {
-            // Ensure user profile exists
-            const { data: existingProfile } = await supabase
-              .from('users')
-              .select('id')
-              .eq('id', session.user.id)
-              .single()
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth state change:', {
+        event,
+        hasSession: !!session,
+        userId: session?.user?.id,
+        email: session?.user?.email,
+        pathname
+      })
 
-            if (!existingProfile) {
-              // Create profile if it doesn't exist
-              await supabase.from('users').insert([
-                {
-                  id: session.user.id,
-                  username: session.user.email?.split('@')[0],
-                  name: session.user.user_metadata.name || session.user.email?.split('@')[0],
-                  avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                }
-              ])
-
-              // Create initial user stats
-              await supabase.from('user_stats').insert([
-                {
-                  user_id: session.user.id,
-                  beans_tried: 0,
-                  roasters_visited: 0,
-                  total_reviews: 0,
-                  unique_origins: 0,
-                  roasters_created: 0,
-                  experience_points: 0,
-                  level: 1,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                }
-              ])
-            }
-          }
-          router.push('/')
-        } catch (error) {
-          console.error("Error creating user profile:", error)
+      if (mounted) {
+        updateAuthState(session?.user ?? null, false)
+        // Only handle redirect on auth state change if it's a sign in/out event
+        if (['SIGNED_IN', 'SIGNED_OUT'].includes(event)) {
+          handleRedirect(session?.user ?? null)
         }
-      }
-      
-      if (event === 'SIGNED_OUT') {
-        router.push('/login')
       }
     })
 
     return () => {
+      mounted = false
       subscription.unsubscribe()
     }
-  }, [router])
-
-  const signUp = async (email: string, password: string, name: string, username: string) => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { 
-            name,
-            username
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`
-        }
-      })
-
-      if (error) throw error
-
-      if (data.user) {
-        toast({
-          title: "Verification email sent",
-          description: "Please check your email to verify your account.",
-          duration: 5000
-        })
-        router.push('/login?message=Please check your email to verify your account')
-      }
-    } catch (error) {
-      console.error("Signup error:", error)
-      toast({
-        title: "Error",
-        description: "Failed to create account. Please try again.",
-        variant: "destructive"
-      })
-      throw error
-    }
-  }
+  }, [pathname, updateAuthState, handleRedirect])
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      updateAuthState(null, true)
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
       })
-      
-      if (error) throw error
-      router.push("/")
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Invalid email or password",
-        variant: "destructive"
-      })
-      throw error
-    }
-  }
 
-  const signInWithGoogle = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      })
-      
       if (error) throw error
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to sign in with Google",
-        variant: "destructive"
-      })
-      throw error
-    }
-  }
 
-  const signInWithGithub = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "github",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
+      console.log('✅ Sign in successful:', {
+        userId: data.user?.id,
+        email: data.user?.email
       })
-      
-      if (error) throw error
+
+      updateAuthState(data.user, false)
+      handleRedirect(data.user)
     } catch (error) {
+      console.error('❌ Sign in error:', error)
       toast({
         title: "Error",
-        description: "Failed to sign in with GitHub",
-        variant: "destructive"
+        description: "Failed to sign in. Please try again.",
+        variant: "destructive",
       })
       throw error
     }
@@ -232,34 +210,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut()
-      setUser(null)
-      router.push("/login")
+      updateAuthState(null, true)
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      updateAuthState(null, false)
+      router.push('/login')
     } catch (error) {
+      console.error('❌ Sign out error:', error)
       toast({
         title: "Error",
-        description: "Failed to sign out",
-        variant: "destructive"
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
       })
+      throw error
     }
   }
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      isLoading,
-      signUp,
-      signIn,
-      signInWithGoogle,
-      signInWithGithub,
-      signOut
-    }}>
+    <AuthContext.Provider value={{ ...state, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext)
   if (!context) {
     throw new Error("useAuth must be used within an AuthProvider")

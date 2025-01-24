@@ -41,7 +41,20 @@ export function useReviews(beanId: string) {
       const { data, error } = await supabase
         .from("reviews")
         .select(`
-          *,
+          id,
+          rating,
+          content,
+          brew_method,
+          grind_size,
+          flavor_notes,
+          aroma,
+          body,
+          acidity,
+          sweetness,
+          aftertaste,
+          photo_url,
+          created_at,
+          updated_at,
           user:user_id (
             id,
             name,
@@ -58,7 +71,8 @@ export function useReviews(beanId: string) {
       }
 
       return data || []
-    }
+    },
+    enabled: !!beanId
   })
 
   const addReview = useMutation({

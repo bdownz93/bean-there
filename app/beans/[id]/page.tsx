@@ -1,8 +1,10 @@
-import { BeanProfile } from "@/components/bean/bean-profile"
-import { BeanReviews } from "@/components/bean/bean-reviews"
+'use server'
+
+import { getServerSupabaseClient } from "@/lib/supabase-server"
 import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { notFound } from "next/navigation"
-import { supabase } from "@/lib/supabase"
+import { BeanDetailsClient } from "@/components/beans/bean-details-client"
 
 interface BeanPageProps {
   params: {
@@ -10,53 +12,50 @@ interface BeanPageProps {
   }
 }
 
-async function getBeanDetails(id: string) {
-  const { data: bean, error } = await supabase
-    .from('beans')
-    .select(`
-      *,
-      roaster:roaster_id (
-        id,
-        name,
-        slug,
-        location,
-        description
-      )
-    `)
-    .eq('id', id)
-    .single()
-
-  if (error) {
-    console.error("Error fetching bean:", error)
-    return null
-  }
-  
-  return bean
-}
-
 export default async function BeanPage({ params }: BeanPageProps) {
   try {
-    const bean = await getBeanDetails(params.id)
+    const supabase = getServerSupabaseClient()
 
-    if (!bean) {
+    const [{ data: bean, error: beanError }, { data: reviews, error: reviewsError }] = await Promise.all([
+      supabase
+        .from('beans')
+        .select(`
+          *,
+          roaster:roaster_id (
+            id,
+            name
+          )
+        `)
+        .eq('id', params.id)
+        .single(),
+      supabase
+        .from('reviews')
+        .select(`
+          *,
+          user:user_id (
+            id,
+            email
+          )
+        `)
+        .eq('bean_id', params.id)
+        .order('created_at', { ascending: false })
+    ])
+
+    if (beanError || !bean) {
       return notFound()
     }
 
-    return (
-      <div className="container mx-auto py-8 space-y-8">
-        <BeanProfile bean={bean} />
-        <BeanReviews bean={bean} />
-      </div>
-    )
+    return <BeanDetailsClient bean={bean} reviews={reviews || []} />
   } catch (error) {
     console.error("Error loading bean:", error)
     return (
-      <div className="container mx-auto py-8">
+      <div className="container mx-auto px-4 py-8">
         <Card>
-          <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">
-              Error loading coffee bean. Please try again later.
-            </p>
+          <CardContent className="p-4">
+            <div className="space-y-4">
+              <Skeleton className="h-8 w-[250px]" />
+              <Skeleton className="h-[200px]" />
+            </div>
           </CardContent>
         </Card>
       </div>
