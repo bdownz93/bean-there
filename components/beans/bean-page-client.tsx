@@ -1,7 +1,7 @@
 "use client"
 
-import { BeanProfile } from "@/components/bean/bean-profile"
-import { BeanReviews } from "@/components/bean/bean-reviews"
+import { BeanProfile } from "@/components/beans/bean-profile"
+import { BeanReviews } from "@/components/beans/bean-reviews"
 import type { Bean } from "@/lib/types"
 
 interface BeanPageClientProps {

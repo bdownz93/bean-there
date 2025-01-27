@@ -2,7 +2,7 @@
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
-import { RoasterCard } from "@/components/roaster/roaster-card"
+import { RoasterCard } from "@/components/roasters/roaster-card"
 import type { Roaster } from "@/lib/types"
 
 interface MapSidebarProps {

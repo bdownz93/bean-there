@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { BeanList } from "@/components/bean/bean-list"
-import { BeanHeader } from "@/components/bean/bean-header"
+import { BeanList } from "@/components/beans/bean-list"
+import { BeanHeader } from "@/components/beans/bean-header"
 import { AddBeanForm } from "@/components/forms/add-bean-form"
 import { useQuery } from "@tanstack/react-query"
 import { getAllBeans, getAllRoasters } from "@/lib/supabase"

@@ -1,4 +1,4 @@
-import { BeanGrid } from "@/components/bean/bean-grid"
+import { BeanGrid } from "@/components/beans/grid"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { getServerSupabaseClient } from "@/lib/supabase-server"

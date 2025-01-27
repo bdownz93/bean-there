@@ -1,4 +1,4 @@
-import { RoastersClient } from "@/components/roaster/roasters-client"
+import { RoastersClient } from "@/components/roasters/roasters-client"
 import { AddRoasterForm } from "@/components/forms/add-roaster-form"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"

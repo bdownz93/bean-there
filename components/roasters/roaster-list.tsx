@@ -1,6 +1,6 @@
 "use client"
 
-import { RoasterCard } from "@/components/roaster/roaster-card"
+import { RoasterCard } from "@/components/roasters/roaster-card"
 import type { Roaster } from "@/lib/types"
 
 interface RoasterListProps {

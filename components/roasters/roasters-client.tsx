@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { RoasterList } from "@/components/roaster/roaster-list"
-import { RoasterHeader } from "@/components/roaster/roaster-header"
+import { RoasterList } from "@/components/roasters/roaster-list"
+import { RoasterHeader } from "@/components/roasters/roaster-header"
 import { AddRoasterForm } from "@/components/forms/add-roaster-form"
 import { MapView } from "@/components/map/map-view"
 import { useStore } from "@/lib/store"

@@ -1,7 +1,7 @@
 "use client"
 
-import { RoasterProfile } from "@/components/roaster/roaster-profile"
-import { BeanGrid } from "@/components/bean/bean-grid"
+import { RoasterProfile } from "@/components/roasters/roaster-profile"
+import { BeanGrid } from "@/components/beans/grid"
 import type { Roaster } from "@/lib/types"
 
 interface RoasterPageClientProps {
