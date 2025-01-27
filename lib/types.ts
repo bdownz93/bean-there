@@ -32,6 +32,7 @@ export interface Roaster {
   website_url?: string
   phone?: string
   logo_url?: string
+  hero_image_url?: string
   rating: number
   coordinates: {
     lat: number
@@ -41,6 +42,15 @@ export interface Roaster {
   created_at: string
   updated_at: string
   beans?: Bean[]
+}
+
+export interface BeanRating {
+  id: string
+  user_id: string
+  bean_id: string
+  rating: number
+  created_at: string
+  updated_at: string
 }
 
 export interface Bean {
@@ -62,10 +72,13 @@ export interface Bean {
   altitude?: string
   variety?: string
   harvest?: string
+  image_url?: string
   created_at: string
   updated_at: string
   roaster?: Roaster
-  image_url?: string
+  bean_ratings?: BeanRating[]
+  average_rating?: number
+  total_ratings?: number
 }
 
 export interface Review {

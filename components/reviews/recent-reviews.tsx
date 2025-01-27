@@ -5,15 +5,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Star } from "lucide-react"
 import Link from "next/link"
 import { Review } from "@/lib/types"
-import { useStore } from "@/lib/store"
+import { RoasterLogo } from "@/components/images/roaster-logo"
 
 interface RecentReviewsProps {
   reviews: Review[]
 }
 
 export function RecentReviews({ reviews }: RecentReviewsProps) {
-  const { users } = useStore()
-
   if (!reviews || reviews.length === 0) {
     return (
       <Card>
@@ -26,43 +24,50 @@ export function RecentReviews({ reviews }: RecentReviewsProps) {
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      {reviews.map((review) => {
-        const user = users[review.userId] || {
-          name: review.userName,
-          avatar: review.userImage
-        }
-
-        return (
-          <Link key={review.id} href={`/beans/${review.beanId}`}>
-            <Card className="h-full hover:bg-accent hover:text-accent-foreground transition-colors">
-              <CardContent className="pt-6">
-                <div className="flex gap-4">
-                  <Avatar>
-                    <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback>{user.name[0]}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold">{user.name}</div>
-                      <div className="flex items-center">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="ml-1 text-sm">{review.rating}</span>
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {review.bean} by {review.roaster}
-                    </div>
-                    <p className="text-sm line-clamp-2">{review.content}</p>
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(review.date).toLocaleDateString()}
+      {reviews.map((review) => (
+        <Card key={review.id} className="h-full hover:bg-accent hover:text-accent-foreground transition-colors">
+          <Link href={`/beans/${review.bean.slug}`} className="block">
+            <CardContent className="pt-6">
+              <div className="flex gap-4">
+                <Avatar>
+                  <AvatarImage src={review.user.avatar_url} alt={review.user.username} />
+                  <AvatarFallback>{review.user.username?.[0]}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold">{review.user.username}</div>
+                    <div className="flex items-center">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span className="ml-1 text-sm">{review.rating}</span>
                     </div>
                   </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div 
+                      className="cursor-pointer"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        window.location.href = `/roasters/${review.bean.roaster.slug}`
+                      }}
+                    >
+                      <RoasterLogo 
+                        src={review.bean.roaster.logo_url} 
+                        alt={review.bean.roaster.name}
+                        size="sm"
+                        className="inline-block"
+                      />
+                    </div>
+                    <span>{review.bean.roaster.name} • {review.bean.name}</span>
+                  </div>
+                  {review.review && (
+                    <p className="text-sm line-clamp-2">{review.review}</p>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
           </Link>
-        )
-      })}
+        </Card>
+      ))}
     </div>
   )
 }

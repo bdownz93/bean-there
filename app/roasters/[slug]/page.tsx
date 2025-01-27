@@ -3,6 +3,9 @@ import { BeanGrid } from "@/components/bean/bean-grid"
 import { getRoasterBySlug } from "@/lib/supabase"
 import { notFound } from "next/navigation"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 interface RoasterPageProps {
   params: {
     slug: string

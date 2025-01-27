@@ -41,9 +41,9 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={`${inter.className} antialiased`}>
         <Providers initialSession={session}>
-          <div className="min-h-screen flex flex-col bg-background">
+          <div className="relative min-h-screen flex flex-col bg-background">
             <Navbar />
             <main className="flex-1">
               {children}

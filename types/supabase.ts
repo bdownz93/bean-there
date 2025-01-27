@@ -200,6 +200,162 @@ export interface Database {
           updated_at?: string
         }
       }
+      comments: {
+        Row: {
+          id: string
+          user_id: string
+          content: string
+          parent_id: string | null
+          review_id: string | null
+          roaster_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          content: string
+          parent_id?: string | null
+          review_id?: string | null
+          roaster_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          content?: string
+          parent_id?: string | null
+          review_id?: string | null
+          roaster_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      comment_likes: {
+        Row: {
+          id: string
+          user_id: string
+          comment_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          comment_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          comment_id?: string
+          created_at?: string
+        }
+      }
+      follows: {
+        Row: {
+          id: string
+          follower_id: string
+          following_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          follower_id: string
+          following_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          follower_id?: string
+          following_id?: string
+          created_at?: string
+        }
+      }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          type: string
+          content: string
+          link: string | null
+          read: boolean
+          actor_id: string | null
+          reference_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          type: string
+          content: string
+          link?: string | null
+          read?: boolean
+          actor_id?: string | null
+          reference_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          type?: string
+          content?: string
+          link?: string | null
+          read?: boolean
+          actor_id?: string | null
+          reference_id?: string | null
+          created_at?: string
+        }
+      }
+      saved_items: {
+        Row: {
+          id: string
+          user_id: string
+          bean_id: string | null
+          roaster_id: string | null
+          review_id: string | null
+          collection_name: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          bean_id?: string | null
+          roaster_id?: string | null
+          review_id?: string | null
+          collection_name?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          bean_id?: string | null
+          roaster_id?: string | null
+          review_id?: string | null
+          collection_name?: string
+          created_at?: string
+        }
+      }
+      user_badges: {
+        Row: {
+          id: string
+          user_id: string
+          badge_type: string
+          awarded_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          badge_type: string
+          awarded_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          badge_type?: string
+          awarded_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

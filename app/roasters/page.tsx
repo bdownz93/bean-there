@@ -4,13 +4,38 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getServerSupabaseClient } from "@/lib/supabase-server"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function RoastersPage() {
   try {
     const supabase = getServerSupabaseClient()
     
     const { data: roasters, error } = await supabase
       .from('roasters')
-      .select('*')
+      .select(`
+        id,
+        name,
+        slug,
+        location,
+        description,
+        logo_url,
+        hero_image_url,
+        created_at,
+        updated_at,
+        beans (
+          id,
+          name,
+          slug,
+          description,
+          origin,
+          roast_level,
+          image_url,
+          bean_ratings (
+            rating
+          )
+        )
+      `)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -18,9 +43,30 @@ export default async function RoastersPage() {
       throw error
     }
 
-    if (!roasters) {
-      throw new Error('Failed to load roasters')
-    }
+    // Calculate average rating and total beans for each roaster
+    const roastersWithStats = roasters?.map(roaster => {
+      // Calculate average rating for each bean
+      const beansWithRatings = roaster.beans?.map(bean => ({
+        ...bean,
+        average_rating: bean.bean_ratings ? 
+          Number((bean.bean_ratings.reduce((acc: number, curr: any) => acc + curr.rating, 0) / bean.bean_ratings.length).toFixed(2)) : 
+          null,
+        total_ratings: bean.bean_ratings?.length || 0
+      })) || []
+
+      // Calculate roaster's average rating from bean ratings
+      const validBeanRatings = beansWithRatings.filter(bean => bean.average_rating !== null)
+      const roasterRating = validBeanRatings.length > 0
+        ? Number((validBeanRatings.reduce((acc, bean) => acc + (bean.average_rating || 0), 0) / validBeanRatings.length).toFixed(2))
+        : null
+
+      return {
+        ...roaster,
+        beans: beansWithRatings,
+        total_beans: roaster.beans?.length || 0,
+        average_rating: roasterRating
+      }
+    }) || []
 
     return (
       <div className="container mx-auto px-4 py-8">
@@ -33,7 +79,7 @@ export default async function RoastersPage() {
           </div>
           <AddRoasterForm />
         </div>
-        <RoastersClient initialRoasters={roasters} />
+        <RoastersClient initialRoasters={roastersWithStats} />
       </div>
     )
   } catch (error) {

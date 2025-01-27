@@ -65,10 +65,17 @@ export function BeanForm({ onSuccess }: BeanFormProps) {
     setLoading(true)
 
     try {
+      // Generate slug from name
+      const slug = formData.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+
       const { data, error } = await supabase
         .from('beans')
         .insert([{
           ...formData,
+          slug,
           price: parseFloat(formData.price) || 0,
           weight: parseInt(formData.weight) || 0,
         }])
@@ -83,6 +90,7 @@ export function BeanForm({ onSuccess }: BeanFormProps) {
       })
 
       onSuccess?.()
+      router.refresh()
     } catch (error) {
       console.error('Error adding bean:', error)
       toast({
